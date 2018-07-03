@@ -110,7 +110,7 @@ void Controller::cmdCallback(const rosflight_msgs::CommandConstPtr &msg)
       xc_.r = msg->z;
       control_mode_ = msg->mode;
       break;
-    case rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_AZ:
+    case rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_ZACC:
       xc_.ax = msg->x;
       xc_.ay = msg->y;
       xc_.az = msg->F;
@@ -226,10 +226,10 @@ void Controller::computeControl(double dt)
     double pddot_c = saturate(PID_w_.computePID(xc_.pd, xhat_.pd, dt, pddot), max_.w, -max_.w);
     xc_.az = PID_z_.computePID(pddot_c, pddot, dt);
     ROS_INFO("pddot = %f, pddot_c = %f, az_c = %f", pddot, pddot_c, xc_.az);
-    mode_flag = rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_AZ;
+    mode_flag = rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_ZACC;
   }
 
-  if(mode_flag == rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_AZ)
+  if(mode_flag == rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_ZACC)
   {
     // Model inversion (m[ax;ay;az] = m[0;0;g] + R'[0;0;-T]
     // This model tends to pop the MAV up in the air when a large change

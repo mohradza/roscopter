@@ -20,6 +20,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   nav_msgs
   sensor_msgs
+  roslib
+  rosbag
 )
 
 find_package(Eigen3 REQUIRED)
@@ -48,7 +50,8 @@ add_dependencies(roscopter_eigen ${catkin_EXPORTED_TARGETS})
 target_link_libraries(roscopter_eigen ${catkin_LIBRARIES})
 
 
-## Declare cpp executables
+##########################################################
+## Controller
 add_executable(controller
   src/controller/controller_node.cpp
   src/controller/controller.cpp
@@ -56,10 +59,26 @@ add_executable(controller
 add_dependencies(controller ${catkin_EXPORTED_TARGETS})
 target_link_libraries(controller ${catkin_LIBRARIES})
 
-add_executable(mekf
-  src/mekf/mekf_node.cpp
-  src/mekf/mekf.cpp
-  src/mekf/mekf_math.cpp
+##########################################################
+## EKF Library - main library code
+add_library(ekf
+  src/ekf/ekf.cpp
+  include/ekf/ekf.h
+  include/ekf/math_helper.h
+  include/ekf/quat.h
 )
-add_dependencies(mekf ${catkin_EXPORTED_TARGETS})
-target_link_libraries(mekf ${catkin_LIBRARIES})
+## ROS EKF Library - A ROS-wrapper for the EKF
+add_library(ekf_ros src/ekf/ekf_ros.cpp include/ekf/ekf_ros.h)
+target_link_libraries(ekf_ros ${catkin_LIBRARIES} ekf)
+
+## EKF Test - Used to check Jacobians and other Functionality
+add_executable(ekf_test src/ekf/test.cpp)
+target_link_libraries(ekf_test ${GTEST_LIBRARIES} pthread ekf)
+
+## ROS node - A simple node wrapper for the ROS EKF library
+add_executable(ekf_node  src/ekf/ekf_node.cpp )
+target_link_libraries(ekf_node ${catkin_LIBRARIES} ekf ekf_ros)
+
+## ROSbag parser node - used to post-process a ROS bag
+add_executable(ekf_rosbag src/ekf/ekf_rosbag.cpp)
+target_link_libraries(ekf_rosbag ${catkin_LIBRARIES} ekf mocap_ekf_ros)
