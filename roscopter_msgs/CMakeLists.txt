@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(roscopter_msgs)
 
 find_package(catkin REQUIRED COMPONENTS
-    message_generation)
+    message_generation std_msgs)
 
 ################################################
 ## Declare ROS messages, services and actions ##
@@ -39,6 +39,7 @@ find_package(catkin REQUIRED COMPONENTS
 add_service_files(
   FILES
   AddWaypoint.srv
+  AddMultipleWaypoints.srv
   RemoveWaypoint.srv
   SetWaypointsFromFile.srv
 )
@@ -52,8 +53,8 @@ add_service_files(
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
-  # DEPENDENCIES
-  # std_msgs  # Or other packages containing msgs
+   DEPENDENCIES
+   std_msgs  # Or other packages containing msgs
 )
 
 ###################################

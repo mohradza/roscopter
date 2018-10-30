@@ -1,0 +1,6 @@
+# Add multiple waypoints to waypoint list
+
+#waypoints in array are [x, y, z, yaw, radius, difficulty]
+std_msgs/Float64MultiArray new_waypoints
+---
+int32 length
