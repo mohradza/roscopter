@@ -5,6 +5,7 @@
 #include <rosflight_msgs/Command.h>
 #include <rosflight_msgs/BtrajCommand.h>
 #include <rosflight_msgs/Status.h>
+#include <z_state_estimator/ZStateEst.h>
 #include <controller/simple_pid.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
@@ -93,6 +94,7 @@ private:
   ros::Subscriber cmd_sub_;
   ros::Subscriber status_sub_;
   ros::Subscriber attitude_sub_;
+  ros::Subscriber z_est_sub_;
   ros::Publisher command_pub_;
 
   // Paramters
@@ -139,6 +141,7 @@ private:
   // Functions
   void stateCallback(const nav_msgs::OdometryConstPtr &msg);
   void attitudeCallback(const geometry_msgs::Vector3StampedConstPtr &msg);
+  void zStateCallback(const z_state_estimator::ZStateEstConstPtr &msg);
   void isFlyingCallback(const std_msgs::BoolConstPtr &msg);
   void cmdCallback(const rosflight_msgs::CommandConstPtr &msg);
   void btrajCmdCallback(const rosflight_msgs::BtrajCommandConstPtr &msg);

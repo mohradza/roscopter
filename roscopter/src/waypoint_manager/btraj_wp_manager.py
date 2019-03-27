@@ -43,6 +43,8 @@ class hl_cmd_handler(object):
         #uint8 IGNORE_Z = 4
         #uint8 IGNORE_F = 8
 
+        # THESE NEED TO BE SENT IN NWU
+        # TO BE CONSISTENT WITH BTRAJ
         self.home_cmd = BtrajCommand()
         self.home_cmd.ignore = 0
         self.home_cmd.mode = 4
@@ -50,25 +52,25 @@ class hl_cmd_handler(object):
         self.home_cmd.x = 0.0
         self.home_cmd.y = 0.0
         self.home_cmd.z = 0.0
-        self.home_cmd.F = -1.0
+        self.home_cmd.F = 1.0
 
         self.wp_cmd = BtrajCommand()
         self.wp_cmd.ignore = 0
         self.wp_cmd.mode = 4
         self.wp_cmd.controller_select = 1
         self.wp_cmd.x = 0.0
-        self.wp_cmd.y = 1.0
-        self.wp_cmd.z = 0.0
-        self.wp_cmd.F = -1.0
+        self.wp_cmd.y = 0.0
+        self.wp_cmd.z = -0.5
+        self.wp_cmd.F = 1.0
 
         self.wp_cmd2 = BtrajCommand()
         self.wp_cmd2.ignore = 0
         self.wp_cmd2.mode = 4
         self.wp_cmd2.controller_select = 1
-        self.wp_cmd2.x = 2.0
-        self.wp_cmd2.y = 1.0
-        self.wp_cmd2.z = 0.0
-        self.wp_cmd2.F = -1.0
+        self.wp_cmd2.x = 0.0
+        self.wp_cmd2.y = -1.0
+        self.wp_cmd2.z = -0.5
+        self.wp_cmd2.F = 1.0
 
     def rc_cb(self, data):
         self.rc_msg = data
@@ -84,22 +86,16 @@ class hl_cmd_handler(object):
                 command_msg1 = self.home_cmd
                 command_msg1.header.stamp = rospy.Time.now()
                 self.btraj_cmd_pub.publish(command_msg1)
-            else:
+            elif((self.rc_msg.values[6] > 1250) and (self.rc_msg.values[6] < 1750)):
                 rospy.loginfo_throttle(1, 'Commanding waypoints')
-                command_msg2 = self.wp_cmd
+                command_msg2 = self.wp_cmd2
                 command_msg2.header.stamp = rospy.Time.now()
                 self.btraj_cmd_pub.publish(command_msg2)
-            
-#            elif((self.rc_msg.values[6] > 1250) and (self.rc_msg.values[6] < 1750)):
-#                rospy.loginfo_throttle(1, 'Commanding waypoints')
-#                command_msg2 = self.wp_cmd
-#                command_msg2.header.stamp = rospy.Time.now()
-#                self.btraj_cmd_pub.publish(command_msg2)
-#           elif((self.rc_msg.values[6] < 2000) and (self.rc_msg.values[6] > 1750)):
-#                rospy.loginfo_throttle(1, 'Commanding waypoints')
-#                command_msg3 = self.wp_cmd2
-#                command_msg3.header.stamp = rospy.Time.now()
-#                self.btraj_cmd_pub.publish(command_msg3)
+            elif((self.rc_msg.values[6] < 2000) and (self.rc_msg.values[6] > 1750)):
+                rospy.loginfo_throttle(1, 'Commanding waypoints2')
+                command_msg3 = self.wp_cmd2
+                command_msg3.header.stamp = rospy.Time.now()
+                self.btraj_cmd_pub.publish(command_msg3)
                 
             self.loop_rate.sleep()
 

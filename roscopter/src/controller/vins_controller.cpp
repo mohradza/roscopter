@@ -35,6 +35,7 @@ Controller::Controller() :
 
   // Set up Publishers and Subscriber
   state_sub_ = nh_.subscribe("vins_estimator/odometry", 1, &Controller::stateCallback, this);
+  z_est_sub_ = nh_.subscribe("z_state_estimator/z_state_estimate", 1, &Controller::zStateCallback, this);
   attitude_sub_ = nh_.subscribe("/attitude/euler", 1, &Controller::attitudeCallback, this);
   is_flying_sub_ =
       nh_.subscribe("is_flying", 1, &Controller::isFlyingCallback, this);
@@ -54,6 +55,10 @@ void Controller::attitudeCallback(const geometry_msgs::Vector3StampedConstPtr &m
     xhat_.theta = msg->vector.y;
 }
 
+void Controller::zStateCallback(const z_state_estimator::ZStateEstConstPtr &msg)
+{
+    xhat_.pd = -1*msg->height_agl.data;
+}
 
 void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
 {
@@ -79,7 +84,7 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
  
   xhat_.pn = msg->pose.pose.position.x;
   xhat_.pe = -msg->pose.pose.position.y;
-  xhat_.pd = -msg->pose.pose.position.z;
+  //xhat_.pd = -msg->pose.pose.position.z;
 
   // Convert Quaternion to RPYi
   double roll;
@@ -96,7 +101,7 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   //   xhat_.phi = xhat_.phi + M_PI;
   //}
 
-  ROS_INFO("%f", xhat_.psi);
+  //ROS_INFO("%f", xhat_.psi);
 
   // Negative signs are to correct for frame mismatch
   // between vicon and NED
@@ -175,11 +180,11 @@ void Controller::cmdCallback(const rosflight_msgs::CommandConstPtr &msg)
 void Controller::btrajCmdCallback(const rosflight_msgs::BtrajCommandConstPtr &msg)
 {
       // Minus signs are to convert from 
-      // vicon / octomap frame to NED	
+      // vicon / octomap NWU frame to NED	
       xc_.pn = msg->x;
       xc_.pe = -msg->y;
-      xc_.pd = msg->F;
-      xc_.psi = msg->z;
+      xc_.pd = -msg->F;
+      xc_.psi = -msg->z;
       
       xc_.x_dot = msg->x_vel;
       xc_.y_dot = -msg->y_vel;

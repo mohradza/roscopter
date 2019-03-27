@@ -16,6 +16,7 @@
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>rosflight_msgs</build_depend>
+  <build_depend>z_state_estimator</build_depend>
   <build_depend>rosflight_utils</build_depend>
   <build_depend>eigen_conversions</build_depend>
   <build_depend>message_generation</build_depend>
@@ -28,6 +29,7 @@
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>rosflight_msgs</run_depend>
+  <run_depend>z_state_estimator</run_depend>
   <run_depend>rosflight_utils</run_depend>
   <run_depend>eigen_conversions</run_depend>
   <run_depend>message_runtime</run_depend>
