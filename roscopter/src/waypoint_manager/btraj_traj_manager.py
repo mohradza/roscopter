@@ -17,7 +17,7 @@ class hl_cmd_handler(object):
         self.loop_rate = rospy.Rate(20)
         self.cmd_pub = rospy.Publisher('high_level_command', Command, queue_size=10)
         self.btraj_cmd_pub = rospy.Publisher('btraj_command', BtrajCommand, queue_size=10)
-        self.btraj_goalpt_pub = rospy.Publisher('waypoint_generator/waypoints', PoseStamped, queue_size=10)
+        self.btraj_goalpt_pub = rospy.Publisher('goal', PoseStamped, queue_size=10)
         rospy.Subscriber('rc_raw', RCRaw, self.rc_cb)
         rospy.Subscriber('position_cmd', PositionCommand, self.pos_cmd_cb)
 
@@ -39,10 +39,11 @@ class hl_cmd_handler(object):
 
         # All outgoing commands should be 
         # published in the octomap / vicon frame
+        # which is NWU.
         # NED conversion handled in controller
         self.goal_point = PoseStamped()
-        self.goal_point.pose.position.x = 7
-        self.goal_point.pose.position.y = 0.0
+        self.goal_point.pose.position.x = 0.0
+        self.goal_point.pose.position.y = 1.0
         self.goal_point.pose.position.z = .75
         self.gp_switch = 0
 
@@ -50,9 +51,9 @@ class hl_cmd_handler(object):
         self.home_cmd.ignore = 0
         self.home_cmd.mode = 4
         self.home_cmd.controller_select = 1
-        self.home_cmd.x = 1.2
-        self.home_cmd.y = -1.6
-        self.home_cmd.z = 0
+        self.home_cmd.x = 0.0
+        self.home_cmd.y = 0.0
+        self.home_cmd.z = 0.0
         self.home_cmd.F = 0.75
 
         self.man_cmd = BtrajCommand()

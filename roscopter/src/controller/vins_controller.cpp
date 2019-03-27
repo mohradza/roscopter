@@ -289,8 +289,8 @@ void Controller::computeControl(double dt)
 
   uint8_t mode_flag = control_mode_;
   
-  //if(controller_select_ == 1){
-  if(true){
+  if(controller_select_ == 1){
+  //if(true){
 	  if(mode_flag == rosflight_msgs::Command::MODE_XPOS_YPOS_YAW_ALTITUDE)
 	  {
 	    // Figure out desired velocities (in inertial frame)
