@@ -3,7 +3,6 @@
 
 #include <ros/ros.h>
 #include <rosflight_msgs/Command.h>
-#include <rosflight_msgs/BtrajCommand.h>
 #include <rosflight_msgs/Status.h>
 #include <controller/simple_pid.h>
 #include <nav_msgs/Odometry.h>
@@ -55,11 +54,7 @@ typedef struct
   double ay;
   double az;
 
-  double ax_ff; //mo added ff variables
-  double ay_ff;
-  double az_ff;
   double throttle;
-
 } command_t;
 
 typedef struct
@@ -89,10 +84,9 @@ private:
   // Publishers and Subscribers
   ros::Subscriber state_sub_;
   ros::Subscriber is_flying_sub_;
-  ros::Subscriber btraj_cmd_sub_;
   ros::Subscriber cmd_sub_;
   ros::Subscriber status_sub_;
-  ros::Subscriber attitude_sub_;
+
   ros::Publisher command_pub_;
 
   // Paramters
@@ -114,12 +108,6 @@ private:
   controller::SimplePID PID_e_;
   controller::SimplePID PID_d_;
   controller::SimplePID PID_psi_;
-  controller::SimplePID PID_xtot_;//bnr - PID objects for single PD controller (vs cascade) for each dimension
-  controller::SimplePID PID_ytot_;
-  controller::SimplePID PID_ztot_;
-  controller::SimplePID PID_xveltot_;
-  controller::SimplePID PID_yveltot_;
-  controller::SimplePID PID_zveltot_;
 
   // Dynamic Reconfigure Hooks
   dynamic_reconfigure::Server<roscopter::ControllerConfig> _server;
@@ -134,14 +122,11 @@ private:
   command_t xc_ = {}; // command
   double prev_time_;
   uint8_t control_mode_;
-  uint8_t controller_select_;
 
   // Functions
   void stateCallback(const nav_msgs::OdometryConstPtr &msg);
-  void attitudeCallback(const geometry_msgs::Vector3StampedConstPtr &msg);
   void isFlyingCallback(const std_msgs::BoolConstPtr &msg);
   void cmdCallback(const rosflight_msgs::CommandConstPtr &msg);
-  void btrajCmdCallback(const rosflight_msgs::BtrajCommandConstPtr &msg);
   void statusCallback(const rosflight_msgs::StatusConstPtr &msg);
 
   void computeControl(double dt);

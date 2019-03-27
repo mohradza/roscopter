@@ -34,7 +34,8 @@ Controller::Controller() :
   _server.setCallback(_func);
 
   // Set up Publishers and Subscriber
-  state_sub_ = nh_.subscribe("vrpn/odom", 1, &Controller::stateCallback, this);
+  state_sub_ = nh_.subscribe("vins_estimator/odometry", 1, &Controller::stateCallback, this);
+  attitude_sub_ = nh_.subscribe("/attitude/euler", 1, &Controller::attitudeCallback, this);
   is_flying_sub_ =
       nh_.subscribe("is_flying", 1, &Controller::isFlyingCallback, this);
   btraj_cmd_sub_ =
@@ -44,6 +45,13 @@ Controller::Controller() :
   status_sub_ = nh_.subscribe("status", 1, &Controller::statusCallback, this);
 
   command_pub_ = nh_.advertise<rosflight_msgs::Command>("command", 1);
+}
+
+void Controller::attitudeCallback(const geometry_msgs::Vector3StampedConstPtr &msg)
+{
+    // We want to use ROSCopters attiude estimates vs VINS-mono	
+    xhat_.phi = msg->vector.x;
+    xhat_.theta = msg->vector.y;
 }
 
 
@@ -64,30 +72,46 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   if(dt <= 0)
     return;
 
-  // This should already be coming in NED
+  // This is coming directly from VINS-mono
+  // VINS-mono seems to be outputting in NWU
+  // All following transformations account for this
+  // difference
+ 
   xhat_.pn = msg->pose.pose.position.x;
   xhat_.pe = -msg->pose.pose.position.y;
   xhat_.pd = -msg->pose.pose.position.z;
 
-  xhat_.u = msg->twist.twist.linear.x;
-  xhat_.v = msg->twist.twist.linear.y;
-  xhat_.w = msg->twist.twist.linear.z;
-
-  // Convert Quaternion to RPY
+  // Convert Quaternion to RPYi
+  double roll;
+  double pitch;
   tf::Quaternion tf_quat;
   tf::quaternionMsgToTF(msg->pose.pose.orientation, tf_quat);
-  tf::Matrix3x3(tf_quat).getRPY(xhat_.phi, xhat_.theta, xhat_.psi);
+  tf::Matrix3x3(tf_quat).getRPY(roll, pitch, xhat_.psi);
+  
+  // For some reason, the roll angle estimate from VINS-mono
+  // is centered around +/- pi. This should correct this value
+ //if (xhat_.phi > 0){
+  //   xhat_.phi = xhat_.phi - M_PI;
+  //} else if (xhat_.phi < 0){
+  //   xhat_.phi = xhat_.phi + M_PI;
+  //}
 
-
+  ROS_INFO("%f", xhat_.psi);
 
   // Negative signs are to correct for frame mismatch
   // between vicon and NED
-  xhat_.theta = -xhat_.theta;
+  //xhat_.theta = -xhat_.theta;
   xhat_.psi = -xhat_.psi;
-  //ROS_INFO_THROTTLE(1,"psi: %f",xhat_.psi);
+  float yaw = xhat_.psi;
+  
+
+  xhat_.u = cos(yaw)*msg->twist.twist.linear.x-sin(yaw)*msg->twist.twist.linear.y;
+  xhat_.v = -1*(sin(yaw)*msg->twist.twist.linear.x+cos(yaw)*msg->twist.twist.linear.y);
+  xhat_.w = -msg->twist.twist.linear.z;
+  
   xhat_.p = msg->twist.twist.angular.x;
-  xhat_.q = msg->twist.twist.angular.y;
-  xhat_.r = msg->twist.twist.angular.z;
+  xhat_.q = -msg->twist.twist.angular.y;
+  xhat_.r = -msg->twist.twist.angular.z;
 
   //if(is_flying_ && armed_)
   if(armed_)
@@ -260,7 +284,8 @@ void Controller::computeControl(double dt)
 
   uint8_t mode_flag = control_mode_;
   
-  if(controller_select_ == 1){
+  //if(controller_select_ == 1){
+  if(true){
 	  if(mode_flag == rosflight_msgs::Command::MODE_XPOS_YPOS_YAW_ALTITUDE)
 	  {
 	    // Figure out desired velocities (in inertial frame)
@@ -304,11 +329,11 @@ void Controller::computeControl(double dt)
 	    xc_.ay = PID_y_dot_.computePID(xc_.y_dot, pydot, dt);
 
 	    // Nested Loop for Altitude
-	    //ROS_INFO_THROTTLE(1,"pd_c: %f, pd: %f, pd_dot: %f", xc_.pd, xhat_.pd, pddot);
+	    ROS_INFO_THROTTLE(1,"pd_c: %f, pd: %f, pd_dot: %f", xc_.pd, xhat_.pd, pddot);
 	    double pddot_c = PID_d_.computePID(xc_.pd, xhat_.pd, dt, pddot);
-	//    ROS_INFO_THROTTLE(1,"pd_dot_c: %f",pddot_c);
+	    ROS_INFO_THROTTLE(1,"pd_dot_c: %f",pddot_c);
 	    xc_.az = PID_z_dot_.computePID(pddot_c, pddot, dt);
-	//    ROS_INFO_THROTTLE(1,"az_c: %f", xc_.az);
+	    ROS_INFO_THROTTLE(1,"az_c: %f", xc_.az);
 	    mode_flag = rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_AZ;
 	  }
 
@@ -331,9 +356,11 @@ void Controller::computeControl(double dt)
 	    // Compute desired thrust based on current pose
 	    double cosp = cos(xhat_.phi);
 	    double cost = cos(xhat_.theta);
+	    ROS_INFO_THROTTLE(1,"cosp: %f, cost: %f", xhat_.phi, xhat_.theta);
 	    xc_.throttle = (1.0 - xc_.az) * throttle_eq_ / cosp / cost;
+	    //xc_.throttle = (1.0 - xc_.az) * throttle_eq_;
 
-	    //ROS_INFO_THROTTLE(1,"throttle_c: %f", xc_.throttle);
+	    ROS_INFO_THROTTLE(1,"throttle_c: %f", xc_.throttle);
 	    mode_flag = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
 	  }
 
