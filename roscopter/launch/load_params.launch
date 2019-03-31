@@ -25,8 +25,8 @@
     <param name="down_I" type="double" value="0.0" />
     <param name="down_D" type="double" value="0.0" />
     
-    <param name="psi_P" type="double" value="1.0" />
-    <param name="psi_I" type="double" value="0.1" />
+    <param name="psi_P" type="double" value=".5" />
+    <param name="psi_I" type="double" value="0.0" />
     <param name="psi_D" type="double" value="0.0" />
   
     <param name="xptot" type="double" value="0.2" /> <!-- .15 -->
@@ -41,7 +41,7 @@
 
     <param name="max_roll" type="double" value="0.196" />
     <param name="max_pitch" type="double" value="0.196" />
-    <param name="max_yaw_rate" type="double" value="0.785" />
+    <param name="max_yaw_rate" type="double" value="0.4" />
     <param name="max_throttle" type="double" value=".85" />
     <param name="max_n_dot" type="double" value="1.5" />
     <param name="max_e_dot" type="double" value="1.5" />

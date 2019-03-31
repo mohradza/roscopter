@@ -418,15 +418,22 @@ void Controller::computeControl(double dt)
          //Assign reference velocities from trajectories to xc_.x_dot, xc_.y_dot, pddot_c
          //Assign feedforward accelerations to xff, yff, zff;
 	 //double xvel_tot = PID_xveltot_.computePID(xc_.x_dot, pxdot, dt);
-	 //double yvel_tot = PID_yveltot_.computePID(xc_.y_dot, pydot, dt);   
-         xc_.ax = PID_xtot_.computePID(xc_.pn, xhat_.pn, dt) + PID_xveltot_.computePID(xc_.x_dot, pxdot, dt) + aff_scale*xc_.ax_ff;
-         xc_.ay = PID_ytot_.computePID(xc_.pe, xhat_.pe, dt) + PID_yveltot_.computePID(xc_.y_dot, pydot, dt) + aff_scale*xc_.ay_ff;
+	 //double yvel_tot = PID_yveltot_.computePID(xc_.y_dot, pydot, dt);
+
+	 double ax = 0.0;
+	 double ay = 0.0;
+         ax = PID_xtot_.computePID(xc_.pn, xhat_.pn, dt) + PID_xveltot_.computePID(xc_.x_dot, pxdot, dt) + aff_scale*xc_.ax_ff;
+         ay = PID_ytot_.computePID(xc_.pe, xhat_.pe, dt) + PID_yveltot_.computePID(xc_.y_dot, pydot, dt) + aff_scale*xc_.ay_ff;
          xc_.az = PID_ztot_.computePID(xc_.pd, xhat_.pd, dt)+PID_zveltot_.computePID(pddot_c, pddot, dt) + aff_scale*xc_.az_ff;
          //ROS_INFO_THROTTLE(1,"xvel_cmd: %f", xc_.x_dot);
          //ROS_INFO_THROTTLE(1,"xc_pn: %f, xhat_pn: %f", xc_.pn, xhat_.pn);
          //ROS_INFO_THROTTLE(1,"xc_ax: %f, xc_ay: %f, xc_az: %f", xc_.ax, xc_.ay, xc_.az);
          //ROS_INFO_THROTTLE(1,"xvel_tot: %f, yvel_tot: %f", xvel_tot, yvel_tot);
-          
+         
+         xc_.ax	= ax*cos(xhat_.psi) + ay*sin(xhat_.psi);
+         xc_.ay	= -ax*sin(xhat_.psi) + ay*cos(xhat_.psi);
+
+         //ROS_INFO("ax: %f, ay: %f", xc_.ax, xc_.ay);
 
         // Model inversion (m[ax;ay;az] = m[0;0;g] + R'[0;0;-T]
         double total_acc_c = sqrt((1.0 - xc_.az) * (1.0 - xc_.az) +

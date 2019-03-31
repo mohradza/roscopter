@@ -22,7 +22,7 @@ class hl_cmd_handler(object):
         self.btraj_goalpt_pub = rospy.Publisher('goal', PoseStamped, queue_size=10)
         
         # Define Subscribers
-        rospy.Subscriber('goal', self.goalpt_cb)
+        rospy.Subscriber('goal', PoseStamped, self.goalpt_cb)
         rospy.Subscriber('rc_raw', RCRaw, self.rc_cb)
         rospy.Subscriber('position_cmd', PositionCommand, self.pos_cmd_cb)
         rospy.Subscriber('vins_estimator/odometry', Odometry, self.vins_odom_cb)
@@ -70,11 +70,12 @@ class hl_cmd_handler(object):
         self.turn_mnvr = BtrajCommand()
         self.turn_mnvr.ignore = 0
         self.turn_mnvr.mode = 4
-        self.turn_mnvr.controller_select = 1
+        self.turn_mnvr.controller_select = 2
         self.turn_mnvr.x = 0.0
         self.turn_mnvr.y = 0.0
         self.turn_mnvr.z = 0.0
         self.turn_mnvr.F = 0.75
+        self.turn_switch = True
 
     def rc_cb(self, data):
         self.rc_msg = data
@@ -84,7 +85,6 @@ class hl_cmd_handler(object):
         self.pos_cmd = data
 
     def vins_odom_cb(self, msg):
-        rospy.loginfo("odom cb")
         self.vins_odom = msg
         vins_quat = (msg.pose.pose.orientation.x, 
                      msg.pose.pose.orientation.y, 
@@ -112,10 +112,14 @@ class hl_cmd_handler(object):
 
     def start(self):
         command_out  = BtrajCommand()
+        command_out.ignore = 0
+        command_out.mode = 4
+        command_out.controller_select = 2
+
         while not rospy.is_shutdown():
 
             # Trajectory Flag = 0 ==> no trajectory available
-            if(False and (self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500)):
+            if(self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500):
                 rospy.loginfo_throttle(2, 'Commanding home position')
                 command_out = self.home_cmd
                 command_out.header.stamp = rospy.Time.now()
@@ -127,7 +131,7 @@ class hl_cmd_handler(object):
                 command_out.header.stamp = rospy.Time.now()
                 self.btraj_cmd_pub.publish(command_out)
             # If we have a trajectory from Btraj, follow it    
-            elif(True or ((self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3) and self.rc_msg.values[6] < 1500)):
+            elif((self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3) and self.rc_msg.values[6] < 1500):
 
                 # Handle Yaw state:
                 # We want to point at the commanded X, Y position state, 
@@ -138,21 +142,23 @@ class hl_cmd_handler(object):
                 x_pos_diff = self.pos_cmd.position.x - self.vins_odom.pose.pose.position.x
                 y_pos_diff = self.pos_cmd.position.y - self.vins_odom.pose.pose.position.y
 
-                # Add a negative sign to put it into NED frame
-                psi_des = -math.atan2(y_pos_diff, x_pos_diff)
+                psi_des = math.atan2(y_pos_diff, x_pos_diff)
                 
                 #if the difference between the desired yaw angle and the current
                 # yaw angle is greater than pi/4, execute a turn only maneuver
                 if (math.fabs((psi_des - self.yaw)) > .8):
                     rospy.loginfo_throttle(2, 'Executing turn maneuver')
+                
                     self.turn_mnvr.header.stamp = rospy.Time.now()
-                    self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
-                    self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
+                    if(self.turn_switch):
+                        self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
+                        self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
+                        self.turn_switch = False
                     self.turn_mnvr.z = psi_des
-                    command_out.header.stamp = rospy.Time.now()
-                    self.btraj_cmd_pub.publish(command_out)
+                    self.btraj_cmd_pub.publish(self.turn_mnvr)
                 # Else, execute the trajectory normally
                 else:
+                    self.turn_switch = True
                     x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
                     y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
                     # If we are close to the goal point, hold a fixed yaw angle
