@@ -48,6 +48,7 @@ class hl_cmd_handler(object):
         self.gp_switch = True
         self.gp_reached = False
         self.gp_thresh = 1       # Euclidean distance to goalpointi (m)
+        self.end_traj_switch = True
 
         self.home_cmd = BtrajCommand()
         self.home_cmd.ignore = 0
@@ -146,7 +147,7 @@ class hl_cmd_handler(object):
                 
                 #if the difference between the desired yaw angle and the current
                 # yaw angle is greater than pi/4, execute a turn only maneuver
-                if (False and math.fabs((psi_des - self.yaw)) > .8):
+                if (not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
                     rospy.loginfo_throttle(2, 'Executing turn maneuver')
                 
                     self.turn_mnvr.header.stamp = rospy.Time.now()
@@ -171,22 +172,36 @@ class hl_cmd_handler(object):
                     else:
                         self.gp_reached = False
                         self.gp_switch = True
-
-                    rospy.loginfo_throttle(2, 'Commanding trajectory')
-                    command_out.x = self.pos_cmd.position.x
-                    command_out.y = self.pos_cmd.position.y
-                    command_out.F = self.pos_cmd.position.z
-                    command_out.z = psi_des;
-                    command_out.z = 0.0;
-                    command_out.x_vel = self.pos_cmd.velocity.x
-                    command_out.y_vel = self.pos_cmd.velocity.y
-                    command_out.z_vel = self.pos_cmd.velocity.z
-                    command_out.x_acc = self.pos_cmd.acceleration.x
-                    command_out.y_acc = self.pos_cmd.acceleration.y
-                    command_out.z_acc = self.pos_cmd.acceleration.z
-                    command_out.controller_select = 2
+                    
+                    if(self.pos_cmd.trajectory_flag == 3):
+                        rospy.loginfo_throttle(2, 'End of current trajectory')
+                        if(self.end_traj_switch):
+                            command_out.z = psi_des
+                            self.end_traj_switch = False
+                        command_out.x = self.pos_cmd.position.x
+                        command_out.y = self.pos_cmd.position.y
+                        command_out.F = self.pos_cmd.position.z
+                        command_out.x_vel = self.pos_cmd.velocity.x
+                        command_out.y_vel = self.pos_cmd.velocity.y
+                        command_out.z_vel = self.pos_cmd.velocity.z
+                        command_out.x_acc = self.pos_cmd.acceleration.x
+                        command_out.y_acc = self.pos_cmd.acceleration.y
+                        command_out.z_acc = self.pos_cmd.acceleration.z
+                        command_out.controller_select = 2
+                    else: 
+                        rospy.loginfo_throttle(2, 'Commanding trajectory')
+                        command_out.x = self.pos_cmd.position.x
+                        command_out.y = self.pos_cmd.position.y
+                        command_out.F = self.pos_cmd.position.z
+                        command_out.z = psi_des;
+                        command_out.x_vel = self.pos_cmd.velocity.x
+                        command_out.y_vel = self.pos_cmd.velocity.y
+                        command_out.z_vel = self.pos_cmd.velocity.z
+                        command_out.x_acc = self.pos_cmd.acceleration.x
+                        command_out.y_acc = self.pos_cmd.acceleration.y
+                        command_out.z_acc = self.pos_cmd.acceleration.z
+                        command_out.controller_select = 2
                     self.btraj_cmd_pub.publish(command_out);
-
         self.loop_rate.sleep()
 
 if __name__ == '__main__':
