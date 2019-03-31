@@ -104,6 +104,9 @@ private:
   double max_accel_xy_;
   double max_accel_z_;
   double drag_constant_;
+  double pn_dot_;
+  double pe_dot_;
+
   bool is_flying_;
   bool armed_;
   int ignore_;
