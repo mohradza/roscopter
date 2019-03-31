@@ -146,7 +146,7 @@ class hl_cmd_handler(object):
                 
                 #if the difference between the desired yaw angle and the current
                 # yaw angle is greater than pi/4, execute a turn only maneuver
-                if (math.fabs((psi_des - self.yaw)) > .8):
+                if (False and math.fabs((psi_des - self.yaw)) > .8):
                     rospy.loginfo_throttle(2, 'Executing turn maneuver')
                 
                     self.turn_mnvr.header.stamp = rospy.Time.now()
@@ -177,6 +177,7 @@ class hl_cmd_handler(object):
                     command_out.y = self.pos_cmd.position.y
                     command_out.F = self.pos_cmd.position.z
                     command_out.z = psi_des;
+                    command_out.z = 0.0;
                     command_out.x_vel = self.pos_cmd.velocity.x
                     command_out.y_vel = self.pos_cmd.velocity.y
                     command_out.z_vel = self.pos_cmd.velocity.z

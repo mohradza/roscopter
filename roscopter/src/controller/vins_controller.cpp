@@ -260,8 +260,8 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   D = config.psi_D;
   PID_psi_.setGains(P, I, D, tau);
 
-  PID_xtot_.setGains(Kpx, 0, .05, tau);//bnr - set values for PD controller
-  PID_ytot_.setGains(Kpy, 0, .05, tau);
+  PID_xtot_.setGains(Kpx, 0, .05, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
+  PID_ytot_.setGains(Kpy, 0, .05, tau, max_.e_dot, -max_.e_dot);
   PID_ztot_.setGains(Kpz, 0, 0, tau);
 
   PID_xveltot_.setGains(Kdx, 0, 0, tau);//bnr - set values for PD controller
@@ -339,11 +339,11 @@ void Controller::computeControl(double dt)
 	    xc_.ay = PID_y_dot_.computePID(xc_.y_dot, pydot, dt);
 
 	    // Nested Loop for Altitude
-	    ROS_INFO_THROTTLE(1,"pd_c: %f, pd: %f, pd_dot: %f", xc_.pd, xhat_.pd, pddot);
+	    //ROS_INFO_THROTTLE(1,"pd_c: %f, pd: %f, pd_dot: %f", xc_.pd, xhat_.pd, pddot);
 	    double pddot_c = PID_d_.computePID(xc_.pd, xhat_.pd, dt, pddot);
-	    ROS_INFO_THROTTLE(1,"pd_dot_c: %f",pddot_c);
+	    //ROS_INFO_THROTTLE(1,"pd_dot_c: %f",pddot_c);
 	    xc_.az = PID_z_dot_.computePID(pddot_c, pddot, dt);
-	    ROS_INFO_THROTTLE(1,"az_c: %f", xc_.az);
+	    //ROS_INFO_THROTTLE(1,"az_c: %f", xc_.az);
 	    mode_flag = rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_AZ;
 	  }
 
@@ -366,11 +366,11 @@ void Controller::computeControl(double dt)
 	    // Compute desired thrust based on current pose
 	    double cosp = cos(xhat_.phi);
 	    double cost = cos(xhat_.theta);
-	    ROS_INFO_THROTTLE(1,"cosp: %f, cost: %f", xhat_.phi, xhat_.theta);
+	    //ROS_INFO_THROTTLE(1,"cosp: %f, cost: %f", xhat_.phi, xhat_.theta);
 	    xc_.throttle = (1.0 - xc_.az) * throttle_eq_ / cosp / cost;
 	    //xc_.throttle = (1.0 - xc_.az) * throttle_eq_;
 
-	    ROS_INFO_THROTTLE(1,"throttle_c: %f", xc_.throttle);
+	    //ROS_INFO_THROTTLE(1,"throttle_c: %f", xc_.throttle);
 	    mode_flag = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
 	  }
 
@@ -429,18 +429,18 @@ void Controller::computeControl(double dt)
     //ax = PID_xtot_.computePID(xc_.pn, xhat_.pn, dt) + PID_xveltot_.computePID(xc_.x_dot, pxdot, dt) + aff_scale*xc_.ax_ff;
     //ay = PID_ytot_.computePID(xc_.pe, xhat_.pe, dt) + PID_yveltot_.computePID(xc_.y_dot, pydot, dt) + aff_scale*xc_.ay_ff;
 
-    ax = PID_xtot_.computePID(xc_.pn, xhat_.pn, dt) + PID_xveltot_.computePID(xc_.x_dot, pn_dot_, dt) + aff_scale*xc_.ax_ff
-    ay = PID_ytot_.computePID(xc_.pe, xhat_.pe, dt) + PID_yveltot_.computePID(xc_.y_dot, pe_dot_, dt) + aff_scale*xc_.ay_ff
+    ax = PID_xtot_.computePID(xc_.pn, xhat_.pn, dt) + PID_xveltot_.computePID(xc_.x_dot, pn_dot_, dt) + aff_scale*xc_.ax_ff;
+    ay = PID_ytot_.computePID(xc_.pe, xhat_.pe, dt) + PID_yveltot_.computePID(xc_.y_dot, pe_dot_, dt) + aff_scale*xc_.ay_ff;
     xc_.az = PID_ztot_.computePID(xc_.pd, xhat_.pd, dt)+PID_zveltot_.computePID(pddot_c, pddot, dt) + aff_scale*xc_.az_ff;
     //ROS_INFO_THROTTLE(1,"xvel_cmd: %f", xc_.x_dot);
     //ROS_INFO_THROTTLE(1,"xc_pn: %f, xhat_pn: %f", xc_.pn, xhat_.pn);
-    //ROS_INFO_THROTTLE(1,"xc_ax: %f, xc_ay: %f, xc_az: %f", xc_.ax, xc_.ay, xc_.az);
+    ROS_INFO_THROTTLE(1,"xc_ax: %f, xc_ay: %f, xc_az: %f", xc_.ax, xc_.ay, xc_.az);
     //ROS_INFO_THROTTLE(1,"xvel_tot: %f, yvel_tot: %f", xvel_tot, yvel_tot);
 
     xc_.ax	= ax*cos(xhat_.psi) + ay*sin(xhat_.psi);
     xc_.ay	= -ax*sin(xhat_.psi) + ay*cos(xhat_.psi);
 
-    //ROS_INFO("ax: %f, ay: %f", xc_.ax, xc_.ay);
+    ROS_INFO("ax: %f, ay: %f", xc_.ax, xc_.ay);
 
     // Model inversion (m[ax;ay;az] = m[0;0;g] + R'[0;0;-T]
     double total_acc_c = sqrt((1.0 - xc_.az) * (1.0 - xc_.az) +
