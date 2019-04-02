@@ -3,9 +3,10 @@
 import numpy as np
 import rospy
 from geometry_msgs.msg import PoseStamped, Quaternion
-from rosflight_msgs.msg import Command, BtrajCommand, RCRaw
+from rosflight_msgs.msg import Command, BtrajCommand, RCRaw, VehicleStatus
 from quadrotor_msgs.msg import PositionCommand
 from nav_msgs.msg import Path, Odometry
+from z_state_estimator.msg import ZStateEst
 import tf
 import math
 
@@ -14,26 +15,30 @@ class hl_cmd_handler(object):
         # Vars
         self.rc_msg = RCRaw()
         self.pos_cmd = PositionCommand()
+        self.vehicle_status = VehicleStatus()
         self.loop_rate = rospy.Rate(20)
         
         # Define Publishers
         self.cmd_pub = rospy.Publisher('high_level_command', Command, queue_size=10)
         self.btraj_cmd_pub = rospy.Publisher('btraj_command', BtrajCommand, queue_size=10)
         self.btraj_goalpt_pub = rospy.Publisher('goal', PoseStamped, queue_size=10)
-        
+        self.vehicle_status_pub = rospy.Publisher('vehicle_status', VehicleStatus, queue_size=10)
+
         # Define Subscribers
         rospy.Subscriber('goal', PoseStamped, self.goalpt_cb)
         rospy.Subscriber('rc_raw', RCRaw, self.rc_cb)
         rospy.Subscriber('position_cmd', PositionCommand, self.pos_cmd_cb)
         rospy.Subscriber('vins_estimator/odometry', Odometry, self.vins_odom_cb)
-
-        # Define the vehicle state variable:
-        # 0: Grounded, 1: Takeoff, 2: Position Hold, 3: Follow Trajectory, 4: Turn, 5: Land
-        self.vehicle_state = 0       
+        rospy.Subscriber('z_state_estimator/z_state_estimate', ZStateEst, self.z_state_cb)
+        
+        self.vehicle_status = VehicleStatus()
+        self.vehicle_status.control_status = 0
+        self.vehicle_status.replan = 0
 
         self.roll = 0.0
         self.pitch = 0.0
         self.yaw = 0.0
+        self.end_yaw = 0.0
 
         self.vins_odom = Odometry()
 
@@ -47,7 +52,7 @@ class hl_cmd_handler(object):
         #self.goal_point.pose.position.z = .75
         self.gp_switch = True
         self.gp_reached = False
-        self.gp_thresh = 1       # Euclidean distance to goalpointi (m)
+        self.gp_thresh = 1.5       # Euclidean distance to goalpointi (m)
         self.end_traj_switch = True
 
         self.home_cmd = BtrajCommand()
@@ -78,12 +83,15 @@ class hl_cmd_handler(object):
         self.turn_mnvr.F = 0.75
         self.turn_switch = True
 
-    def rc_cb(self, data):
-        self.rc_msg = data
+    def rc_cb(self, msg):
+        self.rc_msg = msg
         #rospy.loginfo("6: %d, 7: %d, 8: %d", self.rc_msg.values[5], self.rc_msg.values[6],self.rc_msg.values[7])
+    
+    def z_state_cb(self, msg):
+        self.z_state_msg = msg
 
-    def pos_cmd_cb(self, data):
-        self.pos_cmd = data
+    def pos_cmd_cb(self, msg):
+        self.pos_cmd = msg
 
     def vins_odom_cb(self, msg):
         self.vins_odom = msg
@@ -99,17 +107,9 @@ class hl_cmd_handler(object):
     def goalpt_cb(self, msg):
         self.goal_point = msg
         rospy.loginfo('Goal point received')
-
-#    def checkState(self):
-
-        # Should we be holding position?
-
-        # Should we be landing?
-
-        # Should we be following a trajectory?
-
-        # Should be turning?
- #       if ()
+        x_pos_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
+        y_pos_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
+        self.end_yaw = math.atan2(y_pos_diff, x_pos_diff)
 
     def start(self):
         command_out  = BtrajCommand()
@@ -118,6 +118,8 @@ class hl_cmd_handler(object):
         command_out.controller_select = 2
 
         while not rospy.is_shutdown():
+
+            #self.checkControlState()
 
             # Trajectory Flag = 0 ==> no trajectory available
             if(self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500):
@@ -149,7 +151,7 @@ class hl_cmd_handler(object):
                 # yaw angle is greater than pi/4, execute a turn only maneuver
                 if (not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
                     rospy.loginfo_throttle(2, 'Executing turn maneuver')
-                
+                    turn_maneuver = True
                     self.turn_mnvr.header.stamp = rospy.Time.now()
                     if(self.turn_switch):
                         self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
@@ -159,6 +161,14 @@ class hl_cmd_handler(object):
                     self.btraj_cmd_pub.publish(self.turn_mnvr)
                 # Else, execute the trajectory normally
                 else:
+                    # If we are exiting a turn manuever, replan to reset the trajectory
+                    if(turn_maneuver == True):
+                        # We need to replan
+                        self.vehicle_status.replan = 1
+                        turn_maneuver = False
+                    else:
+                        self.vehicle_status.replan = 0
+
                     self.turn_switch = True
                     x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
                     y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
@@ -167,7 +177,7 @@ class hl_cmd_handler(object):
                         self.gp_reached = True
                         rospy.loginfo_throttle(2, 'Commanding trajectory, nearing current goal point')
                         if(self.gp_switch):
-                            psi_des = math.atan2(y_gp_diff, x_gp_diff)
+                            psi_des = self.end_yaw
                             self.gp_switch = False
                     else:
                         self.gp_reached = False
@@ -176,7 +186,7 @@ class hl_cmd_handler(object):
                     if(self.pos_cmd.trajectory_flag == 3):
                         rospy.loginfo_throttle(2, 'End of current trajectory')
                         if(self.end_traj_switch):
-                            command_out.z = psi_des
+                            command_out.z = self.end_yaw
                             self.end_traj_switch = False
                         command_out.x = self.pos_cmd.position.x
                         command_out.y = self.pos_cmd.position.y
@@ -201,7 +211,8 @@ class hl_cmd_handler(object):
                         command_out.y_acc = self.pos_cmd.acceleration.y
                         command_out.z_acc = self.pos_cmd.acceleration.z
                         command_out.controller_select = 2
-                    self.btraj_cmd_pub.publish(command_out);
+                    self.btraj_cmd_pub.publish(command_out)
+            self.vehicle_status_pub.publish(self.vehicle_status)
         self.loop_rate.sleep()
 
 if __name__ == '__main__':

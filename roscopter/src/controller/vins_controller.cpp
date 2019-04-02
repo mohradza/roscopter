@@ -57,7 +57,7 @@ void Controller::attitudeCallback(const geometry_msgs::Vector3StampedConstPtr &m
 
 void Controller::zStateCallback(const z_state_estimator::ZStateEstConstPtr &msg)
 {
-    xhat_.pd = -1*msg->height_agl.data;
+    //xhat_.pd = -1*msg->height_agl.data;
 }
 
 void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
@@ -84,7 +84,7 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
 
   xhat_.pn = msg->pose.pose.position.x;
   xhat_.pe = -msg->pose.pose.position.y;
-  //xhat_.pd = -msg->pose.pose.position.z;
+  xhat_.pd = -msg->pose.pose.position.z;
 
   // Our trajectory controller needs velocity
   // in the world frame.
@@ -434,7 +434,7 @@ void Controller::computeControl(double dt)
     xc_.az = PID_ztot_.computePID(xc_.pd, xhat_.pd, dt)+PID_zveltot_.computePID(pddot_c, pddot, dt) + aff_scale*xc_.az_ff;
     //ROS_INFO_THROTTLE(1,"xvel_cmd: %f", xc_.x_dot);
     //ROS_INFO_THROTTLE(1,"xc_pn: %f, xhat_pn: %f", xc_.pn, xhat_.pn);
-    ROS_INFO_THROTTLE(1,"xc_ax: %f, xc_ay: %f, xc_az: %f", xc_.ax, xc_.ay, xc_.az);
+    //ROS_INFO_THROTTLE(1,"xc_ax: %f, xc_ay: %f, xc_az: %f", xc_.ax, xc_.ay, xc_.az);
     //ROS_INFO_THROTTLE(1,"xvel_tot: %f, yvel_tot: %f", xvel_tot, yvel_tot);
 
     xc_.ax	= ax*cos(xhat_.psi) + ay*sin(xhat_.psi);
