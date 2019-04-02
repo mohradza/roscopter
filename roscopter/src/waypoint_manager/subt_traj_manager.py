@@ -106,6 +106,7 @@ class hl_cmd_handler(object):
 
     def goalpt_cb(self, msg):
         self.goal_point = msg
+        self.end_traj_switch = True
         rospy.loginfo('Goal point received')
         x_pos_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
         y_pos_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
@@ -142,10 +143,14 @@ class hl_cmd_handler(object):
 
                 # Compute the relative yaw angle between
                 # current position and desired position
-                x_pos_diff = self.pos_cmd.position.x - self.vins_odom.pose.pose.position.x
-                y_pos_diff = self.pos_cmd.position.y - self.vins_odom.pose.pose.position.y
+                #x_pos_diff = self.pos_cmd.position.x - self.vins_odom.pose.pose.position.x
+                #y_pos_diff = self.pos_cmd.position.y - self.vins_odom.pose.pose.position.y
 
-                psi_des = math.atan2(y_pos_diff, x_pos_diff)
+                #psi_des = math.atan2(y_pos_diff, x_pos_diff)
+
+                # Use velocity vector instead
+                psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
+
                 
                 #if the difference between the desired yaw angle and the current
                 # yaw angle is greater than pi/4, execute a turn only maneuver
@@ -164,6 +169,7 @@ class hl_cmd_handler(object):
                     # If we are exiting a turn manuever, replan to reset the trajectory
                     if(turn_maneuver == True):
                         # We need to replan
+                        rospy.loginfo("end turn")
                         self.vehicle_status.replan = 1
                         turn_maneuver = False
                     else:
@@ -175,9 +181,9 @@ class hl_cmd_handler(object):
                     # If we are close to the goal point, hold a fixed yaw angle
                     if(math.sqrt(math.pow(x_gp_diff,2) + math.pow(y_gp_diff,2)) < self.gp_thresh):
                         self.gp_reached = True
-                        rospy.loginfo_throttle(2, 'Commanding trajectory, nearing current goal point')
                         if(self.gp_switch):
-                            psi_des = self.end_yaw
+                            rospy.loginfo_throttle(2, 'Commanding trajectory, nearing current goal point')
+                            #psi_des = self.end_yaw
                             self.gp_switch = False
                     else:
                         self.gp_reached = False
@@ -186,11 +192,11 @@ class hl_cmd_handler(object):
                     if(self.pos_cmd.trajectory_flag == 3):
                         rospy.loginfo_throttle(2, 'End of current trajectory')
                         if(self.end_traj_switch):
-                            command_out.z = self.end_yaw
+                            command_out.z = psi_des
                             self.end_traj_switch = False
-                        command_out.x = self.pos_cmd.position.x
-                        command_out.y = self.pos_cmd.position.y
-                        command_out.F = self.pos_cmd.position.z
+                            command_out.x = self.pos_cmd.position.x
+                            command_out.y = self.pos_cmd.position.y
+                            command_out.F = self.pos_cmd.position.z
                         command_out.x_vel = self.pos_cmd.velocity.x
                         command_out.y_vel = self.pos_cmd.velocity.y
                         command_out.z_vel = self.pos_cmd.velocity.z
