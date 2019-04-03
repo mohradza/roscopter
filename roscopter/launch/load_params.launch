@@ -29,12 +29,12 @@
     <param name="psi_I" type="double" value="0.0" />
     <param name="psi_D" type="double" value="0.0" />
   
-    <param name="xptot" type="double" value="0.15" /> <!-- .15 -->
-    <param name="yptot" type="double" value="0.15" />
-    <param name="zptot" type="double" value="0.5" />
-    <param name="xdtot" type="double" value="0.2" />
-    <param name="ydtot" type="double" value="0.2" />
-    <param name="zdtot" type="double" value="0.5" />
+    <param name="xptot" type="double" value="0.2" /> <!-- .15 -->
+    <param name="yptot" type="double" value="0.2" />
+    <param name="zptot" type="double" value="0.3" />
+    <param name="xdtot" type="double" value="0.1" />
+    <param name="ydtot" type="double" value="0.1" />
+    <param name="zdtot" type="double" value="0.2" />
  
     <param name="tau" type="double" value="0.05" />
     <param name="equilibrium_throttle" type="double" value="0.61" />

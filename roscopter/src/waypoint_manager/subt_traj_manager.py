@@ -82,6 +82,7 @@ class hl_cmd_handler(object):
         self.turn_mnvr.z = 0.0
         self.turn_mnvr.F = 0.75
         self.turn_switch = True
+        self.turn_maneuver = False
 
     def rc_cb(self, msg):
         self.rc_msg = msg
@@ -107,6 +108,8 @@ class hl_cmd_handler(object):
     def goalpt_cb(self, msg):
         self.goal_point = msg
         self.end_traj_switch = True
+        self.new_goal = True
+        self.gp_reached = False
         rospy.loginfo('Goal point received')
         x_pos_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
         y_pos_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
@@ -150,50 +153,55 @@ class hl_cmd_handler(object):
 
                 # Use velocity vector instead
                 psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
-
                 
                 #if the difference between the desired yaw angle and the current
                 # yaw angle is greater than pi/4, execute a turn only maneuver
                 if (not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
                     rospy.loginfo_throttle(2, 'Executing turn maneuver')
-                    turn_maneuver = True
+                    self.turn_maneuver = True
                     self.turn_mnvr.header.stamp = rospy.Time.now()
                     if(self.turn_switch):
                         self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
                         self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
                         self.turn_switch = False
-                    self.turn_mnvr.z = psi_des
+                    self.turn_mnvr.z = self.end_yaw
                     self.btraj_cmd_pub.publish(self.turn_mnvr)
                 # Else, execute the trajectory normally
                 else:
                     # If we are exiting a turn manuever, replan to reset the trajectory
-                    if(turn_maneuver == True):
+                    if(self.turn_maneuver == True):
                         # We need to replan
                         rospy.loginfo("end turn")
                         self.vehicle_status.replan = 1
-                        turn_maneuver = False
+                        self.turn_maneuver = False
                     else:
                         self.vehicle_status.replan = 0
 
                     self.turn_switch = True
                     x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
                     y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
+                    
+                    # If we are not turning, what should the yaw angle be?
                     # If we are close to the goal point, hold a fixed yaw angle
+                    x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
+                    y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
                     if(math.sqrt(math.pow(x_gp_diff,2) + math.pow(y_gp_diff,2)) < self.gp_thresh):
                         self.gp_reached = True
                         if(self.gp_switch):
                             rospy.loginfo_throttle(2, 'Commanding trajectory, nearing current goal point')
-                            #psi_des = self.end_yaw
+                            psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
                             self.gp_switch = False
                     else:
                         self.gp_reached = False
                         self.gp_switch = True
+                        # Use velocity vector instead
+                        psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
                     
                     if(self.pos_cmd.trajectory_flag == 3):
                         rospy.loginfo_throttle(2, 'End of current trajectory')
                         if(self.end_traj_switch):
-                            command_out.z = psi_des
                             self.end_traj_switch = False
+                            command_out.z = self.end_yaw
                             command_out.x = self.pos_cmd.position.x
                             command_out.y = self.pos_cmd.position.y
                             command_out.F = self.pos_cmd.position.z
@@ -209,6 +217,7 @@ class hl_cmd_handler(object):
                         command_out.x = self.pos_cmd.position.x
                         command_out.y = self.pos_cmd.position.y
                         command_out.F = self.pos_cmd.position.z
+                        # Use velocity vector instead
                         command_out.z = psi_des;
                         command_out.x_vel = self.pos_cmd.velocity.x
                         command_out.y_vel = self.pos_cmd.velocity.y
