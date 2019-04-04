@@ -28,7 +28,7 @@ class hl_cmd_handler(object):
         rospy.Subscriber('goal', PoseStamped, self.goalpt_cb)
         rospy.Subscriber('rc_raw', RCRaw, self.rc_cb)
         rospy.Subscriber('position_cmd', PositionCommand, self.pos_cmd_cb)
-        rospy.Subscriber('vins_estimator/odometry', Odometry, self.vins_odom_cb)
+        rospy.Subscriber('/odom', Odometry, self.compass_odom_cb)
         rospy.Subscriber('z_state_estimator/z_state_estimate', ZStateEst, self.z_state_cb)
         
         self.vehicle_status = VehicleStatus()
@@ -40,7 +40,7 @@ class hl_cmd_handler(object):
         self.yaw = 0.0
         self.end_yaw = 0.0
 
-        self.vins_odom = Odometry()
+        self.compass_odom = Odometry()
 
         # All outgoing commands should be 
         # published in the octomap / vicon frame
@@ -94,13 +94,13 @@ class hl_cmd_handler(object):
     def pos_cmd_cb(self, msg):
         self.pos_cmd = msg
 
-    def vins_odom_cb(self, msg):
-        self.vins_odom = msg
-        vins_quat = (msg.pose.pose.orientation.x, 
+    def compass_odom_cb(self, msg):
+        self.compass_odom = msg
+        compass_quat = (msg.pose.pose.orientation.x, 
                      msg.pose.pose.orientation.y, 
                      msg.pose.pose.orientation.z, 
                      msg.pose.pose.orientation.w)
-        vins_euler = tf.transformations.euler_from_quaternion(vins_quat)
+        compass_euler = tf.transformations.euler_from_quaternion(compass_quat)
         self.roll = vins_euler[0]
         self.pitch = vins_euler[1]
         self.yaw = vins_euler[2]
@@ -111,8 +111,8 @@ class hl_cmd_handler(object):
         self.new_goal = True
         self.gp_reached = False
         rospy.loginfo('Goal point received')
-        x_pos_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
-        y_pos_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
+        x_pos_diff = self.goal_point.pose.position.x - self.compass_odom.pose.pose.position.x
+        y_pos_diff = self.goal_point.pose.position.y - self.compass_odom.pose.pose.position.y
         self.end_yaw = math.atan2(y_pos_diff, x_pos_diff)
 
     def start(self):
@@ -146,8 +146,8 @@ class hl_cmd_handler(object):
 
                 # Compute the relative yaw angle between
                 # current position and desired position
-                #x_pos_diff = self.pos_cmd.position.x - self.vins_odom.pose.pose.position.x
-                #y_pos_diff = self.pos_cmd.position.y - self.vins_odom.pose.pose.position.y
+                #x_pos_diff = self.pos_cmd.position.x - self.compass_odom.pose.pose.position.x
+                #y_pos_diff = self.pos_cmd.position.y - self.compass_odom.pose.pose.position.y
 
                 #psi_des = math.atan2(y_pos_diff, x_pos_diff)
 
@@ -161,9 +161,9 @@ class hl_cmd_handler(object):
                     self.turn_maneuver = True
                     self.turn_mnvr.header.stamp = rospy.Time.now()
                     if(self.turn_switch):
-                        self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
-                        self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
-                        self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
+                        self.turn_mnvr.x = self.compass_odom.pose.pose.position.x
+                        self.turn_mnvr.y = self.compass_odom.pose.pose.position.y
+                        self.turn_mnvr.F = self.compass_odom.pose.pose.position.z
                         self.turn_switch = False
                     self.turn_mnvr.z = self.end_yaw
                     self.btraj_cmd_pub.publish(self.turn_mnvr)
@@ -179,13 +179,13 @@ class hl_cmd_handler(object):
                         self.vehicle_status.replan = 0
 
                     self.turn_switch = True
-                    x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
-                    y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
+                    x_gp_diff = self.goal_point.pose.position.x - self.compass_odom.pose.pose.position.x
+                    y_gp_diff = self.goal_point.pose.position.y - self.compass_odom.pose.pose.position.y
                     
                     # If we are not turning, what should the yaw angle be?
                     # If we are close to the goal point, hold a fixed yaw angle
-                    x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
-                    y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
+                    x_gp_diff = self.goal_point.pose.position.x - self.compass_odom.pose.pose.position.x
+                    y_gp_diff = self.goal_point.pose.position.y - self.compass_odom.pose.pose.position.y
                     if(math.sqrt(math.pow(x_gp_diff,2) + math.pow(y_gp_diff,2)) < self.gp_thresh):
                         self.gp_reached = True
                         if(self.gp_switch):

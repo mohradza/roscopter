@@ -440,7 +440,7 @@ void Controller::computeControl(double dt)
     xc_.ax	= ax*cos(xhat_.psi) + ay*sin(xhat_.psi);
     xc_.ay	= -ax*sin(xhat_.psi) + ay*cos(xhat_.psi);
 
-    ROS_INFO("ax: %f, ay: %f", xc_.ax, xc_.ay);
+    //ROS_INFO("ax: %f, ay: %f", xc_.ax, xc_.ay);
 
     // Model inversion (m[ax;ay;az] = m[0;0;g] + R'[0;0;-T]
     double total_acc_c = sqrt((1.0 - xc_.az) * (1.0 - xc_.az) +
