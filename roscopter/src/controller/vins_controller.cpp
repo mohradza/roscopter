@@ -208,17 +208,22 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
 {
   double P, I, D, tau;
   double Kpx, Kdx, Kpy, Kdy, Kpz, Kdz; //bnr gains for a single PD loop in each dimension
-  double gain_scaler = .25;
+  double Kpdx, Kpdy, Kpdz;
+	 double gain_scaler = .25;
 
   Kpx = config.xptot;
   Kpy = config.yptot;
   Kpz = config.zptot;
+ 
+  Kpdx = config.kpdx;
+  Kpdy = config.kpdy;
+  Kpdz = config.kpdz;
 
   Kdx = config.xdtot;
   Kdy = config.ydtot;
   Kdz = config.zdtot;
 
-  ROS_INFO("Kpx: %f", Kpx);
+  ROS_INFO("Kpdx: %f", Kpdx);
 
   tau = config.tau;
   P = config.x_dot_P;
@@ -260,9 +265,9 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   D = config.psi_D;
   PID_psi_.setGains(P, I, D, tau);
 
-  PID_xtot_.setGains(Kpx, 0, .05, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
-  PID_ytot_.setGains(Kpy, 0, .05, tau, max_.e_dot, -max_.e_dot);
-  PID_ztot_.setGains(Kpz, 0, 0, tau);
+  PID_xtot_.setGains(Kpx, Kpdx, 0.05, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
+  PID_ytot_.setGains(Kpy, Kpdy, 0.05, tau, max_.e_dot, -max_.e_dot);
+  PID_ztot_.setGains(Kpz, Kpdz, 0.05, tau);
 
   PID_xveltot_.setGains(Kdx, 0, 0, tau);//bnr - set values for PD controller
   PID_yveltot_.setGains(Kdy, 0, 0, tau);
