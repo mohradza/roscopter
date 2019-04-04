@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import numpy as np
-import rospy
+import rospy, tf
 from geometry_msgs.msg import PoseStamped, Quaternion
 from rosflight_msgs.msg import Command, BtrajCommand, RCRaw, VehicleStatus
 from quadrotor_msgs.msg import PositionCommand
@@ -12,6 +12,15 @@ import math
 
 class hl_cmd_handler(object):
     def __init__(self):
+        
+        # Get Waypoints for Automatic Take Off
+        try:
+            self.waypoint_list = rospy.get_param('/waypoint_manager/waypoints')
+        except KeyError:
+            rospy.logfatal('waypoints not set')
+        self.threshold = rospy.get_param('~threshold', 0.1)
+        
+                
         # Vars
         self.rc_msg = RCRaw()
         self.pos_cmd = PositionCommand()
@@ -54,6 +63,11 @@ class hl_cmd_handler(object):
         self.gp_reached = False
         self.gp_thresh = 1.5       # Euclidean distance to goalpointi (m)
         self.end_traj_switch = True
+
+        self.takeoff_cmd = BtrajCommand()
+        self.takeoff_cmd.ignore = 0
+        self.takeoff_cmd.mode = 4
+        self.takeoff_cmd.controller_select = 1
 
         self.home_cmd = BtrajCommand()
         self.home_cmd.ignore = 0
@@ -116,120 +130,174 @@ class hl_cmd_handler(object):
         self.end_yaw = math.atan2(y_pos_diff, x_pos_diff)
 
     def start(self):
-        command_out  = BtrajCommand()
-        command_out.ignore = 0
-        command_out.mode = 4
-        command_out.controller_select = 2
+#        command_out  = BtrajCommand()
+#        command_out.ignore = 0
+#        command_out.mode = 4
+#        command_out.controller_select = 2
+
+        # Takeoff initialization
+        self.take_off = 1
+        self.current_waypoint_index = 0
+        current_waypoint = np.array(self.waypoint_list[0])
+        self.takeoff_cmd.x = current_waypoint[0]
+        self.takeoff_cmd.y = current_waypoint[1]
+        self.takeoff_cmd.z = 0
+        self.takeoff_cmd.F = current_waypoint[2]
+        self.takeoff_cmd.x_vel = current_waypoint[3]
+        self.takeoff_cmd.y_vel = current_waypoint[4]
+        self.takeoff_cmd.z_vel = current_waypoint[5]
+        current_position = np.zeros(3)
+        error = 100000000000000000
 
         while not rospy.is_shutdown():
 
-            #self.checkControlState()
+            if(self.take_off == 1):
+                current_waypoint = np.array(self.waypoint_list[self.current_waypoint_index])
+                (r, p, y) = tf.transformations.euler_from_quaternion([self.vins_odom.pose.pose.orientation.x, self.vins_odom.pose.pose.orientation.y, self.vins_odom.pose.pose.orientation.z, self.vins_odom.pose.pose.orientation.w])
+                current_position = np.array([self.vins_odom.pose.pose.position.x,
+                                             self.vins_odom.pose.pose.position.y,
+                                             self.vins_odom.pose.pose.position.z])
+                error = np.linalg.norm(-current_position[2] - current_waypoint[2])
 
-            # Trajectory Flag = 0 ==> no trajectory available
-            if(self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500):
+                if error < self.threshold:
+                    # Get new waypoint index
+                    self.current_waypoint_index += 1
+                    next_waypoint = np.array(self.waypoint_list[self.current_waypoint_index])
+                    self.takeoff_cmd.x = next_waypoint[0]
+                    self.takeoff_cmd.y = next_waypoint[1]
+                    self.takeoff_cmd.z = 0
+                    self.takeoff_cmd.F = next_waypoint[2]
+                    self.takeoff_cmd.x_vel = next_waypoint[3]
+                    self.takeoff_cmd.y_vel = next_waypoint[4]
+                    self.takeoff_cmd.z_vel = next_waypoint[5]
+
+                    if(self.current_waypoint_index == np.shape(self.waypoint_list)[0] - 1):
+                        self.take_off = 0
+
                 rospy.loginfo_throttle(2, 'Commanding home position')
-                command_out = self.home_cmd
+                command_out = self.takeoff_cmd
                 command_out.header.stamp = rospy.Time.now()
                 self.btraj_cmd_pub.publish(command_out)
-            # Manual Control override from TX
-            elif(self.rc_msg.values[6] > 1500):
-                rospy.loginfo_throttle(2, "Manual roll, pitch, yaw override!")
-                command_out = self.man_cmd
-                command_out.header.stamp = rospy.Time.now()
-                self.btraj_cmd_pub.publish(command_out)
-            # If we have a trajectory from Btraj, follow it    
-            elif((self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3) and self.rc_msg.values[6] < 1500):
 
-                # Handle Yaw state:
-                # We want to point at the commanded X, Y position state, 
-                # which should remain in front of the vehicle.
+                rospy.loginfo_throttle(1, "current_waypoint z: ")
+                rospy.loginfo_throttle(1, current_waypoint[3])
+                rospy.loginfo_throttle(1, "vins_odom z: ")
+                rospy.loginfo_throttle(1, self.vins_odom.pose.pose.position.z)
+                rospy.loginfo_throttle(1, "error: ")
+                rospy.loginfo_throttle(1, error)
+                rospy.loginfo_throttle(1, "waypoint_index: ")
+                rospy.loginfo_throttle(1, self.current_waypoint_index)
+                rospy.loginfo_throttle(1, "take_off flag: ")
+                rospy.loginfo_throttle(1, self.take_off)
 
-                # Compute the relative yaw angle between
-                # current position and desired position
-                #x_pos_diff = self.pos_cmd.position.x - self.vins_odom.pose.pose.position.x
-                #y_pos_diff = self.pos_cmd.position.y - self.vins_odom.pose.pose.position.y
+            else:
+                #self.checkControlState()
 
-                #psi_des = math.atan2(y_pos_diff, x_pos_diff)
+                # Trajectory Flag = 0 ==> no trajectory available
+                if(self.rc_msg.values[6] < 1500):
+                    rospy.loginfo_throttle(2, 'Commanding home position')
+                    command_out = self.home_cmd
+                    command_out.header.stamp = rospy.Time.now()
+                    self.btraj_cmd_pub.publish(command_out)
+                # Manual Control override from TX
+                elif(self.rc_msg.values[6] > 1500):
+                    rospy.loginfo_throttle(2, "Manual roll, pitch, yaw override!")
+                    command_out = self.man_cmd
+                    command_out.header.stamp = rospy.Time.now()
+                    self.btraj_cmd_pub.publish(command_out)
+                # If we have a trajectory from Btraj, follow it    
+                elif((self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3) and self.rc_msg.values[6] < 1500):
 
-                # Use velocity vector instead
-                psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
-                
-                #if the difference between the desired yaw angle and the current
-                # yaw angle is greater than pi/4, execute a turn only maneuver
-                if (not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
-                    rospy.loginfo_throttle(2, 'Executing turn maneuver')
-                    self.turn_maneuver = True
-                    self.turn_mnvr.header.stamp = rospy.Time.now()
-                    if(self.turn_switch):
-                        self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
-                        self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
-                        self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
-                        self.turn_switch = False
-                    self.turn_mnvr.z = self.end_yaw
-                    self.btraj_cmd_pub.publish(self.turn_mnvr)
-                # Else, execute the trajectory normally
-                else:
-                    # If we are exiting a turn manuever, replan to reset the trajectory
-                    if(self.turn_maneuver == True):
-                        # We need to replan
-                        rospy.loginfo("end turn")
-                        self.vehicle_status.replan = 1
-                        self.turn_maneuver = False
-                    else:
-                        self.vehicle_status.replan = 0
+                    # Handle Yaw state:
+                    # We want to point at the commanded X, Y position state, 
+                    # which should remain in front of the vehicle.
 
-                    self.turn_switch = True
-                    x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
-                    y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
+                    # Compute the relative yaw angle between
+                    # current position and desired position
+                    #x_pos_diff = self.pos_cmd.position.x - self.vins_odom.pose.pose.position.x
+                    #y_pos_diff = self.pos_cmd.position.y - self.vins_odom.pose.pose.position.y
+
+                    #psi_des = math.atan2(y_pos_diff, x_pos_diff)
+
+                    # Use velocity vector instead
+                    psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
                     
-                    # If we are not turning, what should the yaw angle be?
-                    # If we are close to the goal point, hold a fixed yaw angle
-                    x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
-                    y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
-                    if(math.sqrt(math.pow(x_gp_diff,2) + math.pow(y_gp_diff,2)) < self.gp_thresh):
-                        self.gp_reached = True
-                        if(self.gp_switch):
-                            rospy.loginfo_throttle(2, 'Commanding trajectory, nearing current goal point')
+                    #if the difference between the desired yaw angle and the current
+                    # yaw angle is greater than pi/4, execute a turn only maneuver
+                    if (not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
+                        rospy.loginfo_throttle(2, 'Executing turn maneuver')
+                        self.turn_maneuver = True
+                        self.turn_mnvr.header.stamp = rospy.Time.now()
+                        if(self.turn_switch):
+                            self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
+                            self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
+                            self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
+                            self.turn_switch = False
+                        self.turn_mnvr.z = self.end_yaw
+                        self.btraj_cmd_pub.publish(self.turn_mnvr)
+                    # Else, execute the trajectory normally
+                    else:
+                        # If we are exiting a turn manuever, replan to reset the trajectory
+                        if(self.turn_maneuver == True):
+                            # We need to replan
+                            rospy.loginfo("end turn")
+                            self.vehicle_status.replan = 1
+                            self.turn_maneuver = False
+                        else:
+                            self.vehicle_status.replan = 0
+
+                        self.turn_switch = True
+                        x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
+                        y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
+                        
+                        # If we are not turning, what should the yaw angle be?
+                        # If we are close to the goal point, hold a fixed yaw angle
+                        x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
+                        y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
+                        if(math.sqrt(math.pow(x_gp_diff,2) + math.pow(y_gp_diff,2)) < self.gp_thresh):
+                            self.gp_reached = True
+                            if(self.gp_switch):
+                                rospy.loginfo_throttle(2, 'Commanding trajectory, nearing current goal point')
+                                psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
+                                self.gp_switch = False
+                        else:
+                            self.gp_reached = False
+                            self.gp_switch = True
+                            # Use velocity vector instead
                             psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
-                            self.gp_switch = False
-                    else:
-                        self.gp_reached = False
-                        self.gp_switch = True
-                        # Use velocity vector instead
-                        psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
-                    
-                    if(self.pos_cmd.trajectory_flag == 3):
-                        rospy.loginfo_throttle(2, 'End of current trajectory')
-                        if(self.end_traj_switch):
-                            self.end_traj_switch = False
-                            command_out.z = self.end_yaw
+                        
+                        if(self.pos_cmd.trajectory_flag == 3):
+                            rospy.loginfo_throttle(2, 'End of current trajectory')
+                            if(self.end_traj_switch):
+                                self.end_traj_switch = False
+                                command_out.z = self.end_yaw
+                                command_out.x = self.pos_cmd.position.x
+                                command_out.y = self.pos_cmd.position.y
+                                command_out.F = self.pos_cmd.position.z
+                            command_out.x_vel = self.pos_cmd.velocity.x
+                            command_out.y_vel = self.pos_cmd.velocity.y
+                            command_out.z_vel = self.pos_cmd.velocity.z
+                            command_out.x_acc = self.pos_cmd.acceleration.x
+                            command_out.y_acc = self.pos_cmd.acceleration.y
+                            command_out.z_acc = self.pos_cmd.acceleration.z
+                            command_out.controller_select = 2
+                        else: 
+                            rospy.loginfo_throttle(2, 'Commanding trajectory')
                             command_out.x = self.pos_cmd.position.x
                             command_out.y = self.pos_cmd.position.y
                             command_out.F = self.pos_cmd.position.z
-                        command_out.x_vel = self.pos_cmd.velocity.x
-                        command_out.y_vel = self.pos_cmd.velocity.y
-                        command_out.z_vel = self.pos_cmd.velocity.z
-                        command_out.x_acc = self.pos_cmd.acceleration.x
-                        command_out.y_acc = self.pos_cmd.acceleration.y
-                        command_out.z_acc = self.pos_cmd.acceleration.z
-                        command_out.controller_select = 2
-                    else: 
-                        rospy.loginfo_throttle(2, 'Commanding trajectory')
-                        command_out.x = self.pos_cmd.position.x
-                        command_out.y = self.pos_cmd.position.y
-                        command_out.F = self.pos_cmd.position.z
-                        # Use velocity vector instead
-                        command_out.z = psi_des;
-                        command_out.x_vel = self.pos_cmd.velocity.x
-                        command_out.y_vel = self.pos_cmd.velocity.y
-                        command_out.z_vel = self.pos_cmd.velocity.z
-                        command_out.x_acc = self.pos_cmd.acceleration.x
-                        command_out.y_acc = self.pos_cmd.acceleration.y
-                        command_out.z_acc = self.pos_cmd.acceleration.z
-                        command_out.controller_select = 2
-                    self.btraj_cmd_pub.publish(command_out)
-            self.vehicle_status_pub.publish(self.vehicle_status)
-            self.loop_rate.sleep()
+                            # Use velocity vector instead
+                            command_out.z = psi_des;
+                            command_out.x_vel = self.pos_cmd.velocity.x
+                            command_out.y_vel = self.pos_cmd.velocity.y
+                            command_out.z_vel = self.pos_cmd.velocity.z
+                            command_out.x_acc = self.pos_cmd.acceleration.x
+                            command_out.y_acc = self.pos_cmd.acceleration.y
+                            command_out.z_acc = self.pos_cmd.acceleration.z
+                            command_out.controller_select = 2
+                        self.btraj_cmd_pub.publish(command_out)
+                self.vehicle_status_pub.publish(self.vehicle_status)
+                self.loop_rate.sleep()
 
 if __name__ == '__main__':
     rospy.init_node('hl_cmd_handler', anonymous=True, disable_signals=True)

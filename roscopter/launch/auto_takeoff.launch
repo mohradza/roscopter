@@ -2,6 +2,6 @@
 
    <rosparam command="load" file="$(find roscopter)/params/waypoints.yaml" />
 
-   <node pkg="roscopter" name="vel_command" type="btraj_wp_manager.py" output="screen" />
+   <node pkg="roscopter" name="vel_command" type="subt_vins_traj_manager.py" output="screen" />
 
 </launch>
