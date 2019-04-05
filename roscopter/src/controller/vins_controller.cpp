@@ -57,7 +57,7 @@ void Controller::attitudeCallback(const geometry_msgs::Vector3StampedConstPtr &m
 
 void Controller::zStateCallback(const z_state_estimator::ZStateEstConstPtr &msg)
 {
-    //xhat_.pd = -1*msg->height_agl.data;
+    xhat_.pd = -1*msg->height_agl.data;
 }
 
 void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
@@ -84,7 +84,7 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
 
   xhat_.pn = msg->pose.pose.position.x;
   xhat_.pe = -msg->pose.pose.position.y;
-  xhat_.pd = -msg->pose.pose.position.z;
+  //xhat_.pd = -msg->pose.pose.position.z;
 
   // Our trajectory controller needs velocity
   // in the world frame.

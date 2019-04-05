@@ -17,7 +17,8 @@ class hl_cmd_handler(object):
         self.pos_cmd = PositionCommand()
         self.control_status = ControlStatus()
         self.loop_rate = rospy.Rate(20)
-        
+        self.height_des = .75
+
         # Define Publishers
         self.cmd_pub = rospy.Publisher('high_level_command', Command, queue_size=10)
         self.btraj_cmd_pub = rospy.Publisher('btraj_command', BtrajCommand, queue_size=10)
@@ -62,7 +63,7 @@ class hl_cmd_handler(object):
         self.home_cmd.x = 0.0
         self.home_cmd.y = 0.0
         self.home_cmd.z = 0.0
-        self.home_cmd.F = 0.55
+        self.home_cmd.F = self.height_des
 
         self.man_cmd = BtrajCommand()
         self.man_cmd.ignore = 7
@@ -71,7 +72,7 @@ class hl_cmd_handler(object):
         self.man_cmd.x = 0.0
         self.man_cmd.y = 0.0
         self.man_cmd.z = 0.0
-        self.man_cmd.F = 0.55
+        self.man_cmd.F = self.height_des
         
         self.turn_mnvr = BtrajCommand()
         self.turn_mnvr.ignore = 0
@@ -80,7 +81,7 @@ class hl_cmd_handler(object):
         self.turn_mnvr.x = 0.0
         self.turn_mnvr.y = 0.0
         self.turn_mnvr.z = 0.0
-        self.turn_mnvr.F = 0.75
+        self.turn_mnvr.F = self.height_des
         self.turn_switch = True
         self.turn_maneuver = False
 
@@ -164,7 +165,8 @@ class hl_cmd_handler(object):
                         rospy.loginfo("turn_switch")
                         self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
                         self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
-                        self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
+                        #self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
+                        self.turn_mnvr.F = self.height_des
                         self.turn_switch = False
                     self.turn_mnvr.z = self.end_yaw
                     self.btraj_cmd_pub.publish(self.turn_mnvr)
@@ -208,7 +210,8 @@ class hl_cmd_handler(object):
                             command_out.z = self.end_yaw
                             command_out.x = self.pos_cmd.position.x
                             command_out.y = self.pos_cmd.position.y
-                            command_out.F = self.pos_cmd.position.z
+                            #command_out.F = self.pos_cmd.position.z
+                            command_out.F = self.height_des
                         command_out.x_vel = self.pos_cmd.velocity.x
                         command_out.y_vel = self.pos_cmd.velocity.y
                         command_out.z_vel = self.pos_cmd.velocity.z
@@ -220,7 +223,8 @@ class hl_cmd_handler(object):
                         rospy.loginfo_throttle(2, 'Commanding trajectory')
                         command_out.x = self.pos_cmd.position.x
                         command_out.y = self.pos_cmd.position.y
-                        command_out.F = self.pos_cmd.position.z
+                        #command_out.F = self.pos_cmd.position.z
+                        command_out.F = self.height_des
                         # Use velocity vector instead
                         command_out.z = psi_des;
                         command_out.x_vel = self.pos_cmd.velocity.x
