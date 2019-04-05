@@ -3,7 +3,7 @@
 import numpy as np
 import rospy
 from geometry_msgs.msg import PoseStamped, Quaternion
-from rosflight_msgs.msg import Command, BtrajCommand, RCRaw, VehicleStatus
+from rosflight_msgs.msg import Command, BtrajCommand, RCRaw, ControlStatus
 from quadrotor_msgs.msg import PositionCommand
 from nav_msgs.msg import Path, Odometry
 from z_state_estimator.msg import ZStateEst
@@ -15,14 +15,14 @@ class hl_cmd_handler(object):
         # Vars
         self.rc_msg = RCRaw()
         self.pos_cmd = PositionCommand()
-        self.vehicle_status = VehicleStatus()
+        self.control_status = ControlStatus()
         self.loop_rate = rospy.Rate(20)
         
         # Define Publishers
         self.cmd_pub = rospy.Publisher('high_level_command', Command, queue_size=10)
         self.btraj_cmd_pub = rospy.Publisher('btraj_command', BtrajCommand, queue_size=10)
         self.btraj_goalpt_pub = rospy.Publisher('goal', PoseStamped, queue_size=10)
-        self.vehicle_status_pub = rospy.Publisher('vehicle_status', VehicleStatus, queue_size=10)
+        self.control_status_pub = rospy.Publisher('control_status', ControlStatus, queue_size=10)
 
         # Define Subscribers
         rospy.Subscriber('goal', PoseStamped, self.goalpt_cb)
@@ -31,9 +31,9 @@ class hl_cmd_handler(object):
         rospy.Subscriber('vins_estimator/odometry', Odometry, self.vins_odom_cb)
         rospy.Subscriber('z_state_estimator/z_state_estimate', ZStateEst, self.z_state_cb)
         
-        self.vehicle_status = VehicleStatus()
-        self.vehicle_status.control_status = 0
-        self.vehicle_status.replan = 0
+        self.control_status = ControlStatus()
+        self.control_status.control_status = 0
+        self.control_status.replan = 0
         self.initial_turn = True
         self.roll = 0.0
         self.pitch = 0.0
@@ -175,10 +175,10 @@ class hl_cmd_handler(object):
                     if(self.turn_maneuver == True):
                         # We need to replan
                         rospy.loginfo("end turn")
-                        self.vehicle_status.replan = 1
+                        self.control_status.replan = 1
                         self.turn_maneuver = False
                     else:
-                        self.vehicle_status.replan = 0
+                        self.control_status.replan = 0
 
                     self.turn_switch = True
                     x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
@@ -231,7 +231,7 @@ class hl_cmd_handler(object):
                         command_out.z_acc = self.pos_cmd.acceleration.z
                         command_out.controller_select = 2
                     self.btraj_cmd_pub.publish(command_out)
-            self.vehicle_status_pub.publish(self.vehicle_status)
+            self.control_status_pub.publish(self.control_status)
             self.loop_rate.sleep()
 
 if __name__ == '__main__':
