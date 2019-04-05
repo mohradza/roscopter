@@ -39,6 +39,7 @@ class hl_cmd_handler(object):
         self.pitch = 0.0
         self.yaw = 0.0
         self.end_yaw = 0.0
+        self.end_psi_des = 0.0
 
         self.vins_odom = Odometry()
 
@@ -156,7 +157,7 @@ class hl_cmd_handler(object):
                 
                 #if the difference between the desired yaw angle and the current
                 # yaw angle is greater than pi/4, execute a turn only maneuver
-                if (self.initial_turn and not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
+                if (False and self.initial_turn and not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
                     rospy.loginfo_throttle(2, 'Executing turn maneuver')
                     self.turn_maneuver = True
                     self.turn_mnvr.header.stamp = rospy.Time.now()
@@ -181,8 +182,6 @@ class hl_cmd_handler(object):
                         self.vehicle_status.replan = 0
 
                     self.turn_switch = True
-                    x_gp_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
-                    y_gp_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
                     
                     # If we are not turning, what should the yaw angle be?
                     # If we are close to the goal point, hold a fixed yaw angle
@@ -192,7 +191,7 @@ class hl_cmd_handler(object):
                         self.gp_reached = True
                         if(self.gp_switch):
                             rospy.loginfo_throttle(2, 'Commanding trajectory, nearing current goal point')
-                            psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
+                            self.end_psi_des = self.yaw
                             self.gp_switch = False
                     else:
                         self.gp_reached = False
@@ -205,7 +204,7 @@ class hl_cmd_handler(object):
                         self.initial_turn = True
                         if(self.end_traj_switch):
                             self.end_traj_switch = False
-                            command_out.z = self.end_yaw
+                            command_out.z = self.end_psi_des
                             command_out.x = self.pos_cmd.position.x
                             command_out.y = self.pos_cmd.position.y
                             command_out.F = self.pos_cmd.position.z
