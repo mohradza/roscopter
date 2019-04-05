@@ -124,66 +124,28 @@ class hl_cmd_handler(object):
         command_out.controller_select = 2
 
         while not rospy.is_shutdown():
-
-            #self.checkControlState()
-
-            # Trajectory Flag = 0 ==> no trajectory available
-            if(self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500):
-                rospy.loginfo_throttle(2, 'Commanding home position')
-                command_out = self.home_cmd
-                command_out.header.stamp = rospy.Time.now()
-                self.btraj_cmd_pub.publish(command_out)
-            # Manual Control override from TX
-            elif(self.rc_msg.values[6] > 1500):
-                rospy.loginfo_throttle(2, "Manual roll, pitch, yaw override!")
-                command_out = self.man_cmd
-                command_out.header.stamp = rospy.Time.now()
-                self.btraj_cmd_pub.publish(command_out)
-            # If we have a trajectory from Btraj, follow it    
-            elif((self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3) and self.rc_msg.values[6] < 1500):
-
-                # Handle Yaw state:
-                # We want to point at the commanded X, Y position state, 
-                # which should remain in front of the vehicle.
-
-                # Compute the relative yaw angle between
-                # current position and desired position
-                #x_pos_diff = self.pos_cmd.position.x - self.vins_odom.pose.pose.position.x
-                #y_pos_diff = self.pos_cmd.position.y - self.vins_odom.pose.pose.position.y
-
-                #psi_des = math.atan2(y_pos_diff, x_pos_diff)
-
-                # Use velocity vector instead
-                psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
-                
-                #if the difference between the desired yaw angle and the current
-                # yaw angle is greater than pi/4, execute a turn only maneuver
-                if (False and self.initial_turn and not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
-                    rospy.loginfo_throttle(2, 'Executing turn maneuver')
-                    self.turn_maneuver = True
-                    self.turn_mnvr.header.stamp = rospy.Time.now()
-                    if(self.turn_switch):
-                        rospy.loginfo("turn_switch")
-                        self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
-                        self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
-                        #self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
-                        self.turn_mnvr.F = self.height_des
-                        self.turn_switch = False
-                    self.turn_mnvr.z = self.end_yaw
-                    self.btraj_cmd_pub.publish(self.turn_mnvr)
-                # Else, execute the trajectory normally
-                else:
-                    self.initial_turn = False
-                    # If we are exiting a turn manuever, replan to reset the trajectory
-                    if(self.turn_maneuver == True):
-                        # We need to replan
-                        rospy.loginfo("end turn")
-                        self.control_status.replan = 1
-                        self.turn_maneuver = False
-                    else:
-                        self.control_status.replan = 0
-
-                    self.turn_switch = True
+            if (takeoff and not self.takeoff_finished):
+                # Do takeoff maneuver
+                self.takeoff_finished = True
+            elif (landing and not self.landing_finished):
+                self.takeoff_finished = False
+            else:
+                # Trajectory Flag = 0 ==> no trajectory available
+                if(self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500):
+                    rospy.loginfo_throttle(2, 'Commanding home position')
+                    command_out = self.home_cmd
+                    command_out.header.stamp = rospy.Time.now()
+                    self.btraj_cmd_pub.publish(command_out)
+                # Manual Control override from TX
+                elif(self.rc_msg.values[6] > 1500):
+                    rospy.loginfo_throttle(2, "Manual roll, pitch, yaw override!")
+                    command_out = self.man_cmd
+                    command_out.header.stamp = rospy.Time.now()
+                    self.btraj_cmd_pub.publish(command_out)
+                # If we have a trajectory from Btraj, follow it    
+                elif((self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3) and self.rc_msg.values[6] < 1500):
+                    # Use velocity vector instead
+                    psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
                     
                     # If we are not turning, what should the yaw angle be?
                     # If we are close to the goal point, hold a fixed yaw angle

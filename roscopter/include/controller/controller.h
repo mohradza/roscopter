@@ -5,6 +5,7 @@
 #include <rosflight_msgs/Command.h>
 #include <rosflight_msgs/BtrajCommand.h>
 #include <rosflight_msgs/Status.h>
+#include <rosflight_msgs/ControlStatus.h>
 #include <z_state_estimator/ZStateEst.h>
 #include <controller/simple_pid.h>
 #include <nav_msgs/Odometry.h>
@@ -95,6 +96,7 @@ private:
   ros::Subscriber status_sub_;
   ros::Subscriber attitude_sub_;
   ros::Subscriber z_est_sub_;
+  ros::Subscriber control_status_sub_;
   ros::Publisher command_pub_;
 
   // Paramters
@@ -106,6 +108,23 @@ private:
   double drag_constant_;
   double pn_dot_;
   double pe_dot_;
+  
+  double takeoff_limiter_;
+  double takeoff_slew_rate_;
+  double landing_limiter_;
+  double landing_slew_rate_;
+  double landed_limiter_;
+
+  bool landed_;
+  bool landing_;
+  bool time_landing_;
+  bool takeoff_;
+  int control_status_;
+
+  ros::WallTime start_time_;
+  ros::WallTime current_time_;
+  double flight_time_;
+  double landing_time_;
 
   bool is_flying_;
   bool armed_;
@@ -149,6 +168,7 @@ private:
   void cmdCallback(const rosflight_msgs::CommandConstPtr &msg);
   void btrajCmdCallback(const rosflight_msgs::BtrajCommandConstPtr &msg);
   void statusCallback(const rosflight_msgs::StatusConstPtr &msg);
+  void controlStatusCallback(const rosflight_msgs::ControlStatusPtr &msg);
 
   void computeControl(double dt);
   void resetIntegrators();
