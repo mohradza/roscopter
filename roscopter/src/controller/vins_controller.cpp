@@ -22,6 +22,20 @@ Controller::Controller() :
 
   is_flying_ = false;
 
+  takeoff_limiter_ = 0.0;
+  takeoff_slew_rate_ = 0.010;
+  takeoff_ = 1;  
+
+  landing_limiter_ = 1.0;
+  landing_slew_rate_ = -0.00333;
+  landing_ = 0;
+
+  landed_limiter_ = 0.0;
+  landed_ = 0;
+
+  start_time_ = ros::WallTime::now();
+  landing_time_ = 20;
+
   nh_private_.getParam("max_roll", max_.roll);
   nh_private_.getParam("max_pitch", max_.pitch);
   nh_private_.getParam("max_yaw_rate", max_.yaw_rate);
@@ -383,8 +397,56 @@ void Controller::computeControl(double dt)
 	    command_.x = saturate(xc_.phi, max_.roll, -max_.roll);
 	    command_.y = saturate(xc_.theta, max_.pitch, -max_.pitch);
 	    command_.z = saturate(xc_.r, max_.yaw_rate, -max_.yaw_rate);
-         //   ROS_INFO_THROTTLE(1,"xc_ax: %f, xc_ay: %f, xc_az: %f", xc_.ax, xc_.ay, xc_.az);
-	  }
+
+	    current_time_ = ros::WallTime::now();
+	    flight_time_ = (current_time_ - start_time_).toNSec() * 1e-9;
+	    ROS_INFO_THROTTLE(1,"flight time: %f", flight_time_);
+ 
+	    if((flight_time_ >= landing_time_) && (flight_time_ < landing_time_ + 1.0))
+	    {
+	      landing_= 1;
+	    } 
+	    if(takeoff_ == 1)
+            {
+              takeoff_limiter_ = takeoff_limiter_ + takeoff_slew_rate_;
+              ROS_INFO_THROTTLE(1,"command_.F before limiting (takeoff): %f", command_.F);
+              command_.F = takeoff_limiter_ * command_.F;
+              ROS_INFO_THROTTLE(1,"command_.F after  limiting (takeoff): %f", command_.F);
+              ROS_INFO_THROTTLE(1,"limiter (takeoff): %f", takeoff_limiter_);
+              if(takeoff_limiter_ >= 1)
+              {
+                takeoff_limiter_ = 0;
+                takeoff_ = 0;
+              }
+            }
+            if(landing_ == 1)
+            {
+              landing_limiter_ = landing_limiter_ + landing_slew_rate_;
+              ROS_INFO_THROTTLE(1,"command_.F before limiting (landing): %f", command_.F);
+              command_.F = landing_limiter_ * command_.F;
+              ROS_INFO_THROTTLE(1,"command_.F after limiting (landing): %f", command_.F);
+              ROS_INFO_THROTTLE(1,"limiter (landing): %f", landing_limiter_);
+              if(landing_limiter_ < 0.5)
+              {
+                landing_limiter_ = 1;
+                landing_ = 0;
+		landed_ = 1;
+              }
+	    }
+	    if(landed_ == 1)
+            {
+              landed_limiter_ = 0;
+              ROS_INFO_THROTTLE(1,"command_.F before limiting (landed): %f", command_.F);
+              command_.F = landed_limiter_ * command_.F;
+              ROS_INFO_THROTTLE(1,"command_.F after limiting (landed): %f", command_.F);
+              ROS_INFO_THROTTLE(1,"limiter (landed): %f", landed_limiter_);
+	    }
+            ROS_INFO_THROTTLE(1, "takeoff_: %d", takeoff_);
+            ROS_INFO_THROTTLE(1, "landing_: %d", landing_);
+            ROS_INFO_THROTTLE(1, "landed_: %d", landed_);
+
+          //   ROS_INFO_THROTTLE(1,"xc_ax: %f, xc_ay: %f, xc_az: %f", xc_.ax, xc_.ay, xc_.az);
+          }
   } else if (controller_select_ == 2){
 
 	  // Calculate desired yaw rate

@@ -107,6 +107,21 @@ private:
   double pn_dot_;
   double pe_dot_;
 
+  double takeoff_limiter_;
+  double takeoff_slew_rate_;
+  double landing_limiter_;
+  double landing_slew_rate_;
+  double landed_limiter_;
+
+  bool takeoff_;
+  bool landing_;
+  bool landed_;
+
+  ros::WallTime start_time_;
+  ros::WallTime current_time_;
+  double flight_time_;
+  double landing_time_;
+
   bool is_flying_;
   bool armed_;
   int ignore_;
