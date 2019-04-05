@@ -265,8 +265,8 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   D = config.psi_D;
   PID_psi_.setGains(P, I, D, tau);
 
-  PID_xtot_.setGains(Kpx, Kpdx, 0.05, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
-  PID_ytot_.setGains(Kpy, Kpdy, 0.05, tau, max_.e_dot, -max_.e_dot);
+  PID_xtot_.setGains(Kpx, Kpdx, 0.025, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
+  PID_ytot_.setGains(Kpy, Kpdy, 0.025, tau, max_.e_dot, -max_.e_dot);
   PID_ztot_.setGains(Kpz, Kpdz, 0.05, tau);
 
   PID_xveltot_.setGains(Kdx, 0, 0, tau);//bnr - set values for PD controller

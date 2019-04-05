@@ -34,7 +34,7 @@ class hl_cmd_handler(object):
         self.vehicle_status = VehicleStatus()
         self.vehicle_status.control_status = 0
         self.vehicle_status.replan = 0
-
+        self.initial_turn = True
         self.roll = 0.0
         self.pitch = 0.0
         self.yaw = 0.0
@@ -58,7 +58,7 @@ class hl_cmd_handler(object):
         self.home_cmd = BtrajCommand()
         self.home_cmd.ignore = 0
         self.home_cmd.mode = 4
-        self.home_cmd.controller_select = 1
+        self.home_cmd.controller_select = 2
         self.home_cmd.x = 0.0
         self.home_cmd.y = 0.0
         self.home_cmd.z = 0.0
@@ -156,11 +156,12 @@ class hl_cmd_handler(object):
                 
                 #if the difference between the desired yaw angle and the current
                 # yaw angle is greater than pi/4, execute a turn only maneuver
-                if (not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
+                if (self.initial_turn and not self.gp_reached and math.fabs((psi_des - self.yaw)) > .8):
                     rospy.loginfo_throttle(2, 'Executing turn maneuver')
                     self.turn_maneuver = True
                     self.turn_mnvr.header.stamp = rospy.Time.now()
                     if(self.turn_switch):
+                        rospy.loginfo("turn_switch")
                         self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
                         self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
                         self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
@@ -169,6 +170,7 @@ class hl_cmd_handler(object):
                     self.btraj_cmd_pub.publish(self.turn_mnvr)
                 # Else, execute the trajectory normally
                 else:
+                    self.initial_turn = False
                     # If we are exiting a turn manuever, replan to reset the trajectory
                     if(self.turn_maneuver == True):
                         # We need to replan
@@ -200,6 +202,7 @@ class hl_cmd_handler(object):
                     
                     if(self.pos_cmd.trajectory_flag == 3):
                         rospy.loginfo_throttle(2, 'End of current trajectory')
+                        self.initial_turn = True
                         if(self.end_traj_switch):
                             self.end_traj_switch = False
                             command_out.z = self.end_yaw

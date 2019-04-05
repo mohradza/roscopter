@@ -101,9 +101,9 @@ class hl_cmd_handler(object):
                      msg.pose.pose.orientation.z, 
                      msg.pose.pose.orientation.w)
         compass_euler = tf.transformations.euler_from_quaternion(compass_quat)
-        self.roll = vins_euler[0]
-        self.pitch = vins_euler[1]
-        self.yaw = vins_euler[2]
+        self.roll = compass_euler[0]
+        self.pitch = compass_euler[1]
+        self.yaw = compass_euler[2]
 
     def goalpt_cb(self, msg):
         self.goal_point = msg
