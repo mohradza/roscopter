@@ -3,7 +3,7 @@
 import numpy as np
 import rospy
 from geometry_msgs.msg import PoseStamped, Quaternion
-from rosflight_msgs.msg import Command, BtrajCommand, RCRaw, VehicleStatus
+from rosflight_msgs.msg import Command, BtrajCommand, RCRaw, ControlStatus
 from quadrotor_msgs.msg import PositionCommand
 from nav_msgs.msg import Path, Odometry
 from z_state_estimator.msg import ZStateEst
@@ -15,14 +15,15 @@ class hl_cmd_handler(object):
         # Vars
         self.rc_msg = RCRaw()
         self.pos_cmd = PositionCommand()
-        self.vehicle_status = VehicleStatus()
+        self.control_status = ControlStatus()
         self.loop_rate = rospy.Rate(20)
-        
+        self.height_des = .75
+
         # Define Publishers
         self.cmd_pub = rospy.Publisher('high_level_command', Command, queue_size=10)
         self.btraj_cmd_pub = rospy.Publisher('btraj_command', BtrajCommand, queue_size=10)
         self.btraj_goalpt_pub = rospy.Publisher('goal', PoseStamped, queue_size=10)
-        self.vehicle_status_pub = rospy.Publisher('vehicle_status', VehicleStatus, queue_size=10)
+        self.control_status_pub = rospy.Publisher('control_status', ControlStatus, queue_size=10)
 
         # Define Subscribers
         rospy.Subscriber('goal', PoseStamped, self.goalpt_cb)
@@ -31,9 +32,9 @@ class hl_cmd_handler(object):
         rospy.Subscriber('vins_estimator/odometry', Odometry, self.vins_odom_cb)
         rospy.Subscriber('z_state_estimator/z_state_estimate', ZStateEst, self.z_state_cb)
         
-        self.vehicle_status = VehicleStatus()
-        self.vehicle_status.control_status = 0
-        self.vehicle_status.replan = 0
+        self.control_status = ControlStatus()
+        self.control_status.control_status = 0
+        self.control_status.replan = 0
         self.initial_turn = True
         self.roll = 0.0
         self.pitch = 0.0
@@ -63,7 +64,7 @@ class hl_cmd_handler(object):
         self.home_cmd.x = 0.0
         self.home_cmd.y = 0.0
         self.home_cmd.z = 0.0
-        self.home_cmd.F = 0.55
+        self.home_cmd.F = self.height_des
 
         self.man_cmd = BtrajCommand()
         self.man_cmd.ignore = 7
@@ -72,7 +73,7 @@ class hl_cmd_handler(object):
         self.man_cmd.x = 0.0
         self.man_cmd.y = 0.0
         self.man_cmd.z = 0.0
-        self.man_cmd.F = 0.55
+        self.man_cmd.F = self.height_des
         
         self.turn_mnvr = BtrajCommand()
         self.turn_mnvr.ignore = 0
@@ -81,7 +82,7 @@ class hl_cmd_handler(object):
         self.turn_mnvr.x = 0.0
         self.turn_mnvr.y = 0.0
         self.turn_mnvr.z = 0.0
-        self.turn_mnvr.F = 0.75
+        self.turn_mnvr.F = self.height_des
         self.turn_switch = True
         self.turn_maneuver = False
 
@@ -165,7 +166,8 @@ class hl_cmd_handler(object):
                         rospy.loginfo("turn_switch")
                         self.turn_mnvr.x = self.vins_odom.pose.pose.position.x
                         self.turn_mnvr.y = self.vins_odom.pose.pose.position.y
-                        self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
+                        #self.turn_mnvr.F = self.vins_odom.pose.pose.position.z
+                        self.turn_mnvr.F = self.height_des
                         self.turn_switch = False
                     self.turn_mnvr.z = self.end_yaw
                     self.btraj_cmd_pub.publish(self.turn_mnvr)
@@ -176,10 +178,10 @@ class hl_cmd_handler(object):
                     if(self.turn_maneuver == True):
                         # We need to replan
                         rospy.loginfo("end turn")
-                        self.vehicle_status.replan = 1
+                        self.control_status.replan = 1
                         self.turn_maneuver = False
                     else:
-                        self.vehicle_status.replan = 0
+                        self.control_status.replan = 0
 
                     self.turn_switch = True
                     
@@ -207,7 +209,8 @@ class hl_cmd_handler(object):
                             command_out.z = self.end_psi_des
                             command_out.x = self.pos_cmd.position.x
                             command_out.y = self.pos_cmd.position.y
-                            command_out.F = self.pos_cmd.position.z
+                            #command_out.F = self.pos_cmd.position.z
+                            command_out.F = self.height_des
                         command_out.x_vel = self.pos_cmd.velocity.x
                         command_out.y_vel = self.pos_cmd.velocity.y
                         command_out.z_vel = self.pos_cmd.velocity.z
@@ -219,7 +222,8 @@ class hl_cmd_handler(object):
                         rospy.loginfo_throttle(2, 'Commanding trajectory')
                         command_out.x = self.pos_cmd.position.x
                         command_out.y = self.pos_cmd.position.y
-                        command_out.F = self.pos_cmd.position.z
+                        #command_out.F = self.pos_cmd.position.z
+                        command_out.F = self.height_des
                         # Use velocity vector instead
                         command_out.z = psi_des;
                         command_out.x_vel = self.pos_cmd.velocity.x
@@ -230,7 +234,7 @@ class hl_cmd_handler(object):
                         command_out.z_acc = self.pos_cmd.acceleration.z
                         command_out.controller_select = 2
                     self.btraj_cmd_pub.publish(command_out)
-            self.vehicle_status_pub.publish(self.vehicle_status)
+            self.control_status_pub.publish(self.control_status)
             self.loop_rate.sleep()
 
 if __name__ == '__main__':
