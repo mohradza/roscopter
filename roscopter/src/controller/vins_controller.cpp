@@ -159,9 +159,11 @@ void Controller::controlStatusCallback(const rosflight_msgs::ControlStatusPtr &m
     //0: On Ground, 1: Takeoff, 2: Hover, 3: Turn, 4: Trajectory, 5: Landing
     if(control_status_ == 1){
         takeoff_ = true;
-    } else if (control_status_ == 5) {
-        landing_ = true;
-    } else {
+	landing_ = false;
+    } else if (control_status_ == 5){
+        takeoff_ = true;
+	landing_ = true;
+    } else{
         takeoff_ = false;
 	landing_ = false;
     }
