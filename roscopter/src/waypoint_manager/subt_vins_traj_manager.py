@@ -16,6 +16,7 @@ class hl_cmd_handler(object):
         self.rc_msg = RCRaw()
         self.pos_cmd = PositionCommand()
         self.control_status = ControlStatus()
+
         self.loop_rate = rospy.Rate(20)
         self.height_des = .75
 
@@ -127,6 +128,7 @@ class hl_cmd_handler(object):
             if (takeoff and not self.takeoff_finished):
                 # Do takeoff maneuver
                 self.takeoff_finished = True
+                self.control_status.control_status = 1
             elif (landing and not self.landing_finished):
                 self.takeoff_finished = False
             else:
@@ -187,7 +189,7 @@ class hl_cmd_handler(object):
                         #command_out.F = self.pos_cmd.position.z
                         command_out.F = self.height_des
                         # Use velocity vector instead
-                        command_out.z = psi_des;
+                        command_out.z = psi_des
                         command_out.x_vel = self.pos_cmd.velocity.x
                         command_out.y_vel = self.pos_cmd.velocity.y
                         command_out.z_vel = self.pos_cmd.velocity.z
