@@ -32,7 +32,7 @@ generate_dynamic_reconfigure_options(
 catkin_package(
   INCLUDE_DIRS include ${EIGEN3_INCLUDE_DIRS}
   CATKIN_DEPENDS roscpp rospy dynamic_reconfigure eigen_conversions
-    rosflight_msgs rosflight_utils std_msgs nav_msgs sensor_msgs roslib
+    rosflight_msgs rosflight_utils std_msgs nav_msgs sensor_msgs roslib marble_common
   DEPENDS EIGEN3
 )
 
@@ -62,6 +62,13 @@ add_executable(vins_controller
 add_dependencies(vins_controller ${catkin_EXPORTED_TARGETS})
 target_link_libraries(vins_controller ${catkin_LIBRARIES})
 
+add_executable(compass_controller
+  src/controller/controller_node.cpp
+  src/controller/compass_controller.cpp
+  include/controller/controller.h
+  src/controller/simple_pid.cpp)
+add_dependencies(compass_controller ${catkin_EXPORTED_TARGETS})
+target_link_libraries(compass_controller ${catkin_LIBRARIES})
 #add_library(ekf
 	#  src/ekf/ekf.cpp
   #  src/ekf/ekf_dyn.cpp

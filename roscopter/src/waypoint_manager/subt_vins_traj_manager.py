@@ -17,6 +17,7 @@ class hl_cmd_handler(object):
         self.rc_msg = RCRaw()
         self.pos_cmd = PositionCommand()
         self.control_status = ControlStatus()
+        self.newest_frontier = PoseStamped()
         self.loop_rate = rospy.Rate(20)
         self.height_des = .75
 
@@ -27,7 +28,7 @@ class hl_cmd_handler(object):
         self.control_status_pub = rospy.Publisher('control_status', ControlStatus, queue_size=10)
 
         # Define Subscribers
-        rospy.Subscriber('goal', PoseStamped, self.goalpt_cb)
+        rospy.Subscriber('/A01/frontier_goal_pose', PoseStamped, self.goalpt_cb)
         rospy.Subscriber('rc_raw', RCRaw, self.rc_cb)
         rospy.Subscriber('position_cmd', PositionCommand, self.pos_cmd_cb)
         rospy.Subscriber('vins_estimator/odometry', Odometry, self.vins_odom_cb)
@@ -43,6 +44,8 @@ class hl_cmd_handler(object):
         self.end_yaw = 0.0
         self.end_psi_des = 0.0
 
+        self.frontier_switch = False
+
         self.vins_odom = Odometry()
 
         # All outgoing commands should be 
@@ -57,6 +60,7 @@ class hl_cmd_handler(object):
         self.gp_reached = False
         self.gp_thresh = 1.5       # Euclidean distance to goalpointi (m)
         self.end_traj_switch = True
+        self.hover_switch = True
 
         self.home_cmd = BtrajCommand()
         self.home_cmd.ignore = 0
@@ -109,14 +113,10 @@ class hl_cmd_handler(object):
         self.yaw = vins_euler[2]
 
     def goalpt_cb(self, msg):
-        self.goal_point = msg
-        self.end_traj_switch = True
+        self.newest_frontier = msg
         self.new_goal = True
         self.gp_reached = False
         rospy.loginfo('Goal point received')
-        x_pos_diff = self.goal_point.pose.position.x - self.vins_odom.pose.pose.position.x
-        y_pos_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
-        self.end_yaw = math.atan2(y_pos_diff, x_pos_diff)
 
     def start(self):
         command_out  = BtrajCommand()
@@ -132,20 +132,25 @@ class hl_cmd_handler(object):
                 self.takeoff_finished = False
             else:
                 # Trajectory Flag = 0 ==> no trajectory available
-                if(self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500):
+                if(self.pos_cmd.trajectory_flag == 0): #and self.rc_msg.values[6] < 1500):
                     rospy.loginfo_throttle(2, 'Commanding home position')
                     command_out = self.home_cmd
                     command_out.header.stamp = rospy.Time.now()
                     self.btraj_cmd_pub.publish(command_out)
+                    if(not self.newest_frontier.pose.position.x == 0 and self.rc_msg.values[6] > 1500):
+                        self.btraj_goalpt_pub.publish(self.newest_frontier)
+                        rospy.loginfo('first goalpoint')
                 # Manual Control override from TX
-                elif(self.rc_msg.values[6] > 1500):
-                    rospy.loginfo_throttle(2, "Manual roll, pitch, yaw override!")
-                    command_out = self.man_cmd
-                    command_out.header.stamp = rospy.Time.now()
-                    self.btraj_cmd_pub.publish(command_out)
+                #elif(self.rc_msg.values[6] > 1500):
+                #    rospy.loginfo_throttle(2, "Manual roll, pitch, yaw override!")
+                #    command_out = self.man_cmd
+                #    command_out.header.stamp = rospy.Time.now()
+                #    self.btraj_cmd_pub.publish(command_out)
                 # If we have a trajectory from Btraj, follow it    
-                elif((self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3) and self.rc_msg.values[6] < 1500):
+                elif(self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3):
+            # and self.rc_msg.values[6] < 1500):
                     # Use velocity vector instead
+                    self.hover_switch = True
                     psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
                     
                     # If we are not turning, what should the yaw angle be?
@@ -174,14 +179,20 @@ class hl_cmd_handler(object):
                             command_out.y = self.pos_cmd.position.y
                             #command_out.F = self.pos_cmd.position.z
                             command_out.F = self.height_des
-                        command_out.x_vel = self.pos_cmd.velocity.x
-                        command_out.y_vel = self.pos_cmd.velocity.y
-                        command_out.z_vel = self.pos_cmd.velocity.z
-                        command_out.x_acc = self.pos_cmd.acceleration.x
-                        command_out.y_acc = self.pos_cmd.acceleration.y
-                        command_out.z_acc = self.pos_cmd.acceleration.z
+                        command_out.x_vel = 0.0
+                        command_out.y_vel = 0.0
+                        command_out.z_vel = 0.0
+                        command_out.x_acc = 0.0
+                        command_out.y_acc = 0.0
+                        command_out.z_acc = 0.0
                         command_out.controller_select = 2
+                        #if(self.frontier_switch):
+                        self.btraj_goalpt_pub.publish(self.newest_frontier)
+                         #   self.frontier_switch = False
+
                     else: 
+                        self.frontier_switch = True
+                        self.end_traj_switch = True
                         rospy.loginfo_throttle(2, 'Commanding trajectory')
                         command_out.x = self.pos_cmd.position.x
                         command_out.y = self.pos_cmd.position.y
@@ -191,15 +202,32 @@ class hl_cmd_handler(object):
                         command_out.z = psi_des;
                         command_out.x_vel = self.pos_cmd.velocity.x
                         command_out.y_vel = self.pos_cmd.velocity.y
-                        command_out.z_vel = self.pos_cmd.velocity.z
+                        command_out.z_vel = 0.0
                         command_out.x_acc = self.pos_cmd.acceleration.x
                         command_out.y_acc = self.pos_cmd.acceleration.y
                         command_out.z_acc = self.pos_cmd.acceleration.z
                         command_out.controller_select = 2
                     self.btraj_cmd_pub.publish(command_out)
+                elif(self.pos_cmd.trajectory_flag == 7):
+                    rospy.loginfo_throttle(2, 'Planning failure, waiting for trajectory')
+                    if(self.hover_switch):
+                        self.hover_switch = False
+                        command_out.z = self.end_psi_des
+                        command_out.x = self.pos_cmd.position.x
+                        command_out.y = self.pos_cmd.position.y
+                        #command_out.F = self.pos_cmd.position.z
+                        command_out.F = self.height_des
+                    command_out.x_vel = 0.0
+                    command_out.y_vel = 0.0
+                    command_out.z_vel = 0.0
+                    command_out.x_acc = 0.0
+                    command_out.y_acc = 0.0
+                    command_out.z_acc = 0.0
+                    command_out.controller_select = 2
+                    self.btraj_cmd_pub.publish(command_out)
+                    self.btraj_goalpt_pub.publish(self.newest_frontier)            
             self.control_status_pub.publish(self.control_status)
             self.loop_rate.sleep()
-
 if __name__ == '__main__':
     rospy.init_node('hl_cmd_handler', anonymous=True, disable_signals=True)
     hl_cmd_node = hl_cmd_handler()

@@ -38,6 +38,9 @@
     <param name="xdtot" type="double" value="0.25" />
     <param name="ydtot" type="double" value="0.25" />
     <param name="zdtot" type="double" value="0.2" />
+    <param name="kdvx" type="double" value="0.05" /> <!-- .15 -->
+    <param name="kdvy" type="double" value="0.05" />
+    <param name="kdvz" type="double" value="0.0" />
  
     <param name="tau" type="double" value="0.05" />
     <param name="equilibrium_throttle" type="double" value="0.61" />
