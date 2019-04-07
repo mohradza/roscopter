@@ -12,7 +12,8 @@ import math
 
 class hl_cmd_handler(object):
     def __init__(self):
-        # Vars
+
+        # Define Variables
         self.rc_msg = RCRaw()
         self.pos_cmd = PositionCommand()
         self.control_status = ControlStatus()
@@ -33,9 +34,33 @@ class hl_cmd_handler(object):
         rospy.Subscriber('vins_estimator/odometry', Odometry, self.vins_odom_cb)
         rospy.Subscriber('z_state_estimator/z_state_estimate', ZStateEst, self.z_state_cb)
         
-        self.control_status = ControlStatus()
+        # Initialize Control Status
         self.control_status.control_status = 0
+        
+        # Initialize Control Status
+        self.STATE_LANDED_ = True
+        self.STATE_TAKEOFF_ = False
+        self.STATE_HOVER_ = False
+        self.STATE_TRAJ_ = False
+        self.STATE_TRAJ_TO_HOVER_ = False
+        self.STATE_LANDING_ = False
+
+        self.CMD_AUTO_ = False
+        self.CMD_MANUAL_ = False
+        self.CMD_TRAJ_ = False
+        self.CMD_HOVER_ = False
+        self.MEAS_HOVER_ = False
+        self.MEAS_LANDED_ = False
+
+        # Initialize Take Off Switch
+        self.RC_SWITCH_AUTONOMOUS_ = 0
+        self.RC_SWITCH_TEST_ = 0
+        self.RC_SWITCH_TEST2_ = 0
+        
+        # Initialize Replan
         self.control_status.replan = 0
+
+        # More Initialization
         self.initial_turn = True
         self.roll = 0.0
         self.pitch = 0.0
@@ -87,12 +112,90 @@ class hl_cmd_handler(object):
         self.turn_switch = True
         self.turn_maneuver = False
 
+        self.log_throttle_rate = 1 # seconds
+
     def rc_cb(self, msg):
         self.rc_msg = msg
-        #rospy.loginfo("6: %d, 7: %d, 8: %d", self.rc_msg.values[5], self.rc_msg.values[6],self.rc_msg.values[7])
-    
+
+        self.RC_SWITCH_AUTONOMOUS_ = msg.values[7]
+
+        if(self.RC_SWITCH_AUTONOMOUS_ > 1750):
+            self.CMD_AUTO_ = True
+            self.CMD_MANUAL_ = False
+        else:
+            self.CMD_AUTO_ = False
+            self.CMD_MANUAL_ = True
+
+        # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        # rospy.loginfo_throttle(self.log_throttle_rate, "RC_SWITCH_AUTONOMOUS_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.RC_SWITCH_AUTONOMOUS_)
+        # rospy.loginfo_throttle(self.log_throttle_rate, "CMD_AUTO_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.CMD_AUTO_)
+        # rospy.loginfo_throttle(self.log_throttle_rate, "CMD_MANUAL_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.CMD_MANUAL_)
+
+        # self.RC_SWITCH_TEST_ = msg.values[6]
+
+        # if(self.RC_SWITCH_TEST_ > 1500):
+        #     self.MEAS_HOVER_ = True
+        # else:
+        #     self.MEAS_HOVER_ = False
+
+        # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        # rospy.loginfo_throttle(self.log_throttle_rate, "RC_SWITCH_TEST_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.RC_SWITCH_TEST_)
+        # rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_HOVER_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_HOVER_)
+
+        # self.RC_SWITCH_TEST2_ = msg.values[4]
+
+        # if(self.RC_SWITCH_TEST2_ > 1500):
+        #     self.CMD_TRAJ_ = True
+        # else:
+        #     self.CMD_TRAJ_ = False
+
+        # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        # rospy.loginfo_throttle(self.log_throttle_rate, "RC_SWITCH_TEST2_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.RC_SWITCH_TEST2_)
+        # rospy.loginfo_throttle(self.log_throttle_rate, "CMD_TRAJ_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.CMD_TRAJ_)
+
+        # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        # rospy.loginfo_throttle(self.log_throttle_rate, "RC_SWITCH_TEST_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.RC_SWITCH_TEST_)
+        # rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_HOVER_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_HOVER_)
+
+        # self.RC_SWITCH_TEST3_ = msg.values[2]
+
+        # if(self.RC_SWITCH_TEST3_ > 1700):
+        #     self.CMD_HOVER_ = True
+        # else:
+        #     self.CMD_HOVER_ = False
+
+        # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        # rospy.loginfo_throttle(self.log_throttle_rate, "RC_SWITCH_TEST3_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.RC_SWITCH_TEST3_)
+        # rospy.loginfo_throttle(self.log_throttle_rate, "CMD_HOVER_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.CMD_HOVER_)
+
     def z_state_cb(self, msg):
         self.z_state_msg = msg
+
+        # Handle switching to landed state
+        if (self.z_state_msg.height_agl.data < 0.11 and self.z_state_msg.z_velocity < .1):
+            self.MEAS_LANDED_ = True
+        else:
+            self.MEAS_LANDED_ = False
+        # Handle switching to hover from takeoff
+        if (self.z_state_msg.height_agl.data > .5 and self.STATE_TAKEOFF_):
+            self.MEAS_HOVER_ = True
+
+        # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        # rospy.loginfo_throttle(self.log_throttle_rate, "z_state_msg:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.height_agl)
+        # rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_LANDED_:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_LANDED_)
 
     def pos_cmd_cb(self, msg):
         self.pos_cmd = msg
@@ -118,6 +221,7 @@ class hl_cmd_handler(object):
         y_pos_diff = self.goal_point.pose.position.y - self.vins_odom.pose.pose.position.y
         self.end_yaw = math.atan2(y_pos_diff, x_pos_diff)
 
+
     def start(self):
         command_out  = BtrajCommand()
         command_out.ignore = 0
@@ -125,13 +229,39 @@ class hl_cmd_handler(object):
         command_out.controller_select = 2
 
         while not rospy.is_shutdown():
-            if (takeoff and not self.takeoff_finished):
+
+            # STATE MACHINE
+
+            self.STATE_LANDED_ = (self.STATE_LANDED_ or (self.STATE_LANDING_ and self.CMD_MANUAL_ and self.MEAS_LANDED_)) and not self.STATE_TAKEOFF_
+            self.STATE_TAKEOFF_ = (self.STATE_TAKEOFF_ or (self.STATE_LANDED_ and self.CMD_AUTO_)) and not self.STATE_LANDING_ and not self.STATE_HOVER_
+            self.STATE_HOVER_ = (self.STATE_HOVER_ or (self.STATE_TAKEOFF_ and self.MEAS_HOVER_) or (self.STATE_TRAJ_TO_HOVER_ and self.MEAS_HOVER_)) and not self.STATE_TRAJ_ and not self.STATE_LANDING_
+            self.STATE_LANDING_ = (self.STATE_LANDING_ or (self.STATE_TAKEOFF_ and self.CMD_MANUAL_) or (self.STATE_HOVER_ and self.CMD_MANUAL_) or (self.STATE_TRAJ_ and self.CMD_MANUAL_)) and not self.STATE_LANDED_
+            self.STATE_TRAJ_ = (self.STATE_TRAJ_ or (self.STATE_HOVER_ and self.CMD_AUTO_ and self.CMD_TRAJ_)) and not self.STATE_LANDING_ and not self.STATE_TRAJ_TO_HOVER_ 
+            self.STATE_TRAJ_TO_HOVER_ = (self.STATE_TRAJ_TO_HOVER_ or (self.STATE_TRAJ_ and self.CMD_AUTO_ and self.CMD_HOVER_)) and not self.STATE_HOVER_
+
+            rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+            rospy.loginfo_throttle(self.log_throttle_rate, "STATE_LANDED_:")
+            rospy.loginfo_throttle(self.log_throttle_rate, self.STATE_LANDED_)
+            rospy.loginfo_throttle(self.log_throttle_rate, "STATE_TAKEOFF_:")
+            rospy.loginfo_throttle(self.log_throttle_rate, self.STATE_TAKEOFF_)
+            rospy.loginfo_throttle(self.log_throttle_rate, "STATE_HOVER_:")
+            rospy.loginfo_throttle(self.log_throttle_rate, self.STATE_HOVER_)
+            rospy.loginfo_throttle(self.log_throttle_rate, "STATE_TRAJ_:")
+            rospy.loginfo_throttle(self.log_throttle_rate, self.STATE_TRAJ_)
+            rospy.loginfo_throttle(self.log_throttle_rate, "STATE_TRAJ_TO_HOVER_:")
+            rospy.loginfo_throttle(self.log_throttle_rate, self.STATE_TRAJ_TO_HOVER_)
+            rospy.loginfo_throttle(self.log_throttle_rate, "STATE_LANDING_:")
+            rospy.loginfo_throttle(self.log_throttle_rate, self.STATE_LANDING_)
+
+            #   if(STATE_GROUND_)
+        
+            if (self.STATE_TAKEOFF_):# and not self.STATE_TAKEOFF_finished):
                 # Do takeoff maneuver
-                self.takeoff_finished = True
+                #self.STATE_TAKEOFF_finished = False
                 self.control_status.control_status = 1
-            elif (landing and not self.landing_finished):
-                self.takeoff_finished = False
-            else:
+            elif(self.STATE_LANDED_):# and not self.landing_finished):
+                self.STATE_TAKEOFF_finished = True
+            elif(self.STATE_HOVER_ or self.STATE_TRAJ_):
                 # Trajectory Flag = 0 ==> no trajectory available
                 if(self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500):
                     rospy.loginfo_throttle(2, 'Commanding home position')
@@ -146,6 +276,8 @@ class hl_cmd_handler(object):
                     self.btraj_cmd_pub.publish(command_out)
                 # If we have a trajectory from Btraj, follow it    
                 elif((self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3) and self.rc_msg.values[6] < 1500):
+                    if(self.STATE_HOVER_ and self.pos_cmd.trajector_flag == 1):
+                        self.CMD_TRAJ_ = True
                     # Use velocity vector instead
                     psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
                     
@@ -166,6 +298,8 @@ class hl_cmd_handler(object):
                         psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
                     
                     if(self.pos_cmd.trajectory_flag == 3):
+                        if(self.STATE_TRAJ_):
+                            self.CMD_HOVER_ = True
                         rospy.loginfo_throttle(2, 'End of current trajectory')
                         self.initial_turn = True
                         if(self.end_traj_switch):

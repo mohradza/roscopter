@@ -22,10 +22,17 @@ Controller::Controller() :
 
   // Landing / takeoff variables
   is_flying_ = false;
-  landing_ = false;
-  time_landing_ = false;
+
+   time_landing_ = false;
+
+  on_ground_ = true;
   takeoff_ = false;
+  hover_ = false;
+  turn_ = false;
+  trajectory_ = false;
+  landing_ = false;
   landed_ = false;
+
   control_status_ = 0;
 
   takeoff_limiter_ = 0.0;
@@ -157,15 +164,69 @@ void Controller::controlStatusCallback(const rosflight_msgs::ControlStatusPtr &m
 {
     control_status_ = msg->control_status;
     //0: On Ground, 1: Takeoff, 2: Hover, 3: Turn, 4: Trajectory, 5: Landing
-    if(control_status_ == 1){
-        takeoff_ = true;
-	      landing_ = false;
-    } else if (control_status_ == 5){
-        takeoff_ = false;
-	      landing_ = true;
-    } else{
-        takeoff_ = false;
-	      landing_ = false;
+    if(control_status_ == 0) // On Ground
+    {
+      on_ground_ = true;
+      takeoff_ = false;
+      hover_ = false;
+      turn_ = false;
+      trajectory_ = false;
+      landing_ = false;
+    }
+    else if(control_status_ == 1) // Takeoff
+    {
+      on_ground_ = false;
+      takeoff_ = true;
+      hover_ = false;
+      turn_ = false;
+      trajectory_ = false;
+      landing_ = false;
+    }
+    else if(control_status_ == 2) // Hover
+    {
+      on_ground_ = false;
+      takeoff_ = false;
+      hover_ = true;
+      turn_ = false;
+      trajectory_ = false;
+      landing_ = false;
+    }
+    else if(control_status_ == 3) // Turn
+    {
+      on_ground_ = false;
+      takeoff_ = false;
+      hover_ = false;
+      turn_ = true;
+      trajectory_ = false;
+      landing_ = false;
+    }
+    else if(control_status_ == 4) // Trajectory
+    {
+      on_ground_ = false;
+      takeoff_ = false;
+      hover_ = false;
+      turn_ = false;
+      trajectory_ = true;
+      landing_ = false;
+    }
+    else if(control_status_ == 5) // Landing
+    {
+      on_ground_ = false;
+      takeoff_ = false;
+      hover_ = false;
+      turn_ = false;
+      trajectory_ = false;
+      landing_ = true;
+    }
+    else // Error ---> Land
+    {
+      on_ground_ = false;
+      takeoff_ = false;
+      hover_ = false;
+      turn_ = false;
+      trajectory_ = false;
+      landing_ = true;
+    ROS_WARN_ONCE("CONTROL STATUS ERROR (OUTSIDE EXPECTED RANGE) --> LAND VEHICLE");
     }
 }
 
@@ -179,7 +240,6 @@ void Controller::statusCallback(const rosflight_msgs::StatusConstPtr &msg)
 {
     armed_ = msg->armed;
 }
-
 
 void Controller::cmdCallback(const rosflight_msgs::CommandConstPtr &msg)
 {
@@ -256,7 +316,7 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   Kdy = config.ydtot;
   Kdz = config.zdtot;
 
-  ROS_INFO("Kpdx: %f", Kpdx);
+  // ROS_INFO("Kpdx: %f", Kpdx);
 
   tau = config.tau;
   P = config.x_dot_P;
