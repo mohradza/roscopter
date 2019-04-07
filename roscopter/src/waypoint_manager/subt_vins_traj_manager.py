@@ -7,6 +7,8 @@ from rosflight_msgs.msg import Command, BtrajCommand, RCRaw, ControlStatus
 from quadrotor_msgs.msg import PositionCommand
 from nav_msgs.msg import Path, Odometry
 from z_state_estimator.msg import ZStateEst
+from marble_common.msg import Estop
+
 import tf
 import math
 
@@ -33,6 +35,7 @@ class hl_cmd_handler(object):
         rospy.Subscriber('position_cmd', PositionCommand, self.pos_cmd_cb)
         rospy.Subscriber('vins_estimator/odometry', Odometry, self.vins_odom_cb)
         rospy.Subscriber('z_state_estimator/z_state_estimate', ZStateEst, self.z_state_cb)
+        rospy.Subscriber('estop', Estop, self.estop_cb)
         
         # Initialize Control Status
         self.control_status.control_status = 0
@@ -47,6 +50,7 @@ class hl_cmd_handler(object):
 
         self.CMD_AUTO_ = False
         self.CMD_MANUAL_ = False
+        self.CMD_ESTOP_ = False
         self.CMD_TRAJ_ = False
         self.CMD_HOVER_ = False
         self.MEAS_HOVER_ = False
@@ -113,6 +117,17 @@ class hl_cmd_handler(object):
         self.turn_maneuver = False
 
         self.log_throttle_rate = 1 # seconds
+
+    def estop_cb(self, msg):
+
+        if msg.cmd == 1:
+            self.CMD_ESTOP_ = True
+        else: 
+            self.CMD_ESTOP_ = False
+        
+        rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        rospy.loginfo_throttle(self.log_throttle_rate, "CMD_ESTOP_:")
+        rospy.loginfo_throttle(self.log_throttle_rate, self.CMD_ESTOP_)
 
     def rc_cb(self, msg):
         self.rc_msg = msg
@@ -183,17 +198,19 @@ class hl_cmd_handler(object):
         self.z_state_msg = msg
 
         # Handle switching to landed state
-        if (self.z_state_msg.height_agl.data < 0.11 and self.z_state_msg.z_velocity < .1):
+        if (self.z_state_msg.height_agl.data < 0.10 and self.z_state_msg.z_velocity.data < 1e-4):
             self.MEAS_LANDED_ = True
         else:
             self.MEAS_LANDED_ = False
         # Handle switching to hover from takeoff
-        if (self.z_state_msg.height_agl.data > .5 and self.STATE_TAKEOFF_):
+        if (self.z_state_msg.height_agl.data > 0.5 and self.STATE_TAKEOFF_):
             self.MEAS_HOVER_ = True
 
         # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
         # rospy.loginfo_throttle(self.log_throttle_rate, "z_state_msg:")
-        # rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.height_agl)
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.height_agl.data)
+        # rospy.loginfo_throttle(self.log_throttle_rate, "z_velocity:")
+        # rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.z_velocity.data)
         # rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_LANDED_:")
         # rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_LANDED_)
 
@@ -232,12 +249,12 @@ class hl_cmd_handler(object):
 
             # STATE MACHINE
 
-            self.STATE_LANDED_ = (self.STATE_LANDED_ or (self.STATE_LANDING_ and self.CMD_MANUAL_ and self.MEAS_LANDED_)) and not self.STATE_TAKEOFF_
+            self.STATE_LANDED_ = (self.STATE_LANDED_ or (self.STATE_LANDING_ and (self.CMD_MANUAL_ or self.CMD_ESTOP_) and self.MEAS_LANDED_)) and not self.STATE_TAKEOFF_
             self.STATE_TAKEOFF_ = (self.STATE_TAKEOFF_ or (self.STATE_LANDED_ and self.CMD_AUTO_)) and not self.STATE_LANDING_ and not self.STATE_HOVER_
             self.STATE_HOVER_ = (self.STATE_HOVER_ or (self.STATE_TAKEOFF_ and self.MEAS_HOVER_) or (self.STATE_TRAJ_TO_HOVER_ and self.MEAS_HOVER_)) and not self.STATE_TRAJ_ and not self.STATE_LANDING_
-            self.STATE_LANDING_ = (self.STATE_LANDING_ or (self.STATE_TAKEOFF_ and self.CMD_MANUAL_) or (self.STATE_HOVER_ and self.CMD_MANUAL_) or (self.STATE_TRAJ_ and self.CMD_MANUAL_)) and not self.STATE_LANDED_
             self.STATE_TRAJ_ = (self.STATE_TRAJ_ or (self.STATE_HOVER_ and self.CMD_AUTO_ and self.CMD_TRAJ_)) and not self.STATE_LANDING_ and not self.STATE_TRAJ_TO_HOVER_ 
             self.STATE_TRAJ_TO_HOVER_ = (self.STATE_TRAJ_TO_HOVER_ or (self.STATE_TRAJ_ and self.CMD_AUTO_ and self.CMD_HOVER_)) and not self.STATE_HOVER_
+            self.STATE_LANDING_ = (self.STATE_LANDING_ or (self.STATE_TAKEOFF_ and self.CMD_ESTOP_) or (self.STATE_HOVER_ and self.CMD_ESTOP_) or (self.STATE_TRAJ_ and self.CMD_ESTOP_) or (self.STATE_TAKEOFF_ and self.CMD_MANUAL_) or (self.STATE_HOVER_ and self.CMD_MANUAL_) or (self.STATE_TRAJ_ and self.CMD_MANUAL_)) and not self.STATE_LANDED_
 
             rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
             rospy.loginfo_throttle(self.log_throttle_rate, "STATE_LANDED_:")
@@ -253,14 +270,50 @@ class hl_cmd_handler(object):
             rospy.loginfo_throttle(self.log_throttle_rate, "STATE_LANDING_:")
             rospy.loginfo_throttle(self.log_throttle_rate, self.STATE_LANDING_)
 
-            #   if(STATE_GROUND_)
-        
-            if (self.STATE_TAKEOFF_):# and not self.STATE_TAKEOFF_finished):
-                # Do takeoff maneuver
-                #self.STATE_TAKEOFF_finished = False
+            # 1: LANDED
+            if(self.STATE_LANDED_ and not self.STATE_TAKEOFF_ and not self.STATE_HOVER_ and not self.STATE_TRAJ_ and not self.STATE_TRAJ_TO_HOVER_ and not self.STATE_LANDING_):
+                self.control_status.control_status = 0
+            # 1: TAKEOFF
+            elif(self.STATE_TAKEOFF_ and not self.STATE_HOVER_ and not self.STATE_TRAJ_ and not self.STATE_TRAJ_TO_HOVER_ and not self.STATE_LANDING_ and not self.STATE_LANDED_):
                 self.control_status.control_status = 1
+            # 2: HOVER
+            elif(self.STATE_HOVER_ and not self.STATE_TRAJ_ and not self.STATE_TRAJ_TO_HOVER_ and not self.STATE_LANDING_ and not self.STATE_LANDED_ and not self.STATE_TAKEOFF_):
+                self.control_status.control_status = 2
+            # 3: TRAJECTORY
+            elif(self.STATE_TRAJ_ and not self.STATE_TRAJ_TO_HOVER_ and not self.STATE_LANDING_ and not self.STATE_LANDED_ and not self.STATE_TAKEOFF_ and not self.STATE_HOVER_):
+                self.control_status.control_status = 3
+            # 4: TRAJECTORY TO HOVER
+            elif(self.STATE_TRAJ_TO_HOVER_ and not self.STATE_LANDING_ and not self.STATE_LANDED_ and not self.STATE_TAKEOFF_ and not self.STATE_TRAJ_ and not self.STATE_HOVER_):
+                self.control_status.control_status = 4
+            # 5: LANDING
+            elif(self.STATE_LANDING_ and not self.STATE_LANDED_ and not self.STATE_TAKEOFF_ and not self.STATE_HOVER_ and not self.STATE_TRAJ_ and not self.STATE_TRAJ_TO_HOVER_):
+                self.control_status.control_status = 5
+            # 6 : ERROR
+            else:
+                self.control_status.control_status = 6
+
+            rospy.loginfo_throttle(self.log_throttle_rate, 'self.control_status.control_status')
+            rospy.loginfo_throttle(self.log_throttle_rate, self.control_status.control_status)
+            
+            if (self.STATE_LANDED_):
+                rospy.loginfo_throttle(self.log_throttle_rate, 'SHOULD PRINT 0')
+            elif(self.STATE_TAKEOFF_):
+                rospy.loginfo_throttle(self.log_throttle_rate, 'SHOULD PRINT 1')
+            elif(self.STATE_HOVER_):
+                rospy.loginfo_throttle(self.log_throttle_rate, 'SHOULD PRINT 2')
+            elif(self.STATE_TRAJ_):
+                rospy.loginfo_throttle(self.log_throttle_rate, 'SHOULD PRINT 3')
+            elif(self.STATE_TRAJ_TO_HOVER_):
+                rospy.loginfo_throttle(self.log_throttle_rate, 'SHOULD PRINT 4')
+            elif(self.STATE_LANDING_):
+                rospy.loginfo_throttle(self.log_throttle_rate, 'SHOULD PRINT 5')
+            else:
+                rospy.loginfo_throttle(self.log_throttle_rate, 'SHOULD PRINT 6')
+
+            if (self.STATE_TAKEOFF_):# and not self.STATE_TAKEOFF_finished):
+                pass
             elif(self.STATE_LANDED_):# and not self.landing_finished):
-                self.STATE_TAKEOFF_finished = True
+                pass
             elif(self.STATE_HOVER_ or self.STATE_TRAJ_):
                 # Trajectory Flag = 0 ==> no trajectory available
                 if(self.pos_cmd.trajectory_flag == 0 and self.rc_msg.values[6] < 1500):

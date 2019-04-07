@@ -111,22 +111,18 @@ private:
   double pn_dot_;
   double pe_dot_;
   
-  double takeoff_limiter_;
+  double limiter_;
   double takeoff_slew_rate_;
-  double landing_limiter_;
   double landing_slew_rate_;
-  double landed_limiter_;
 
+  bool STATE_LANDED_;
+  bool STATE_TAKEOFF_;
+  bool STATE_HOVER_;
+  bool STATE_TRAJ_;
+  bool STATE_TRAJ_TO_STATE_HOVER_;
+  bool STATE_LANDING_;
 
-  bool on_ground_;
-  bool takeoff_;
-  bool hover_;
-  bool turn_;
-  bool trajectory_;
-  bool landing_;
-  bool landed_;
-
-  bool time_landing_;
+  bool timed_landing_;
 
   int control_status_;
 
