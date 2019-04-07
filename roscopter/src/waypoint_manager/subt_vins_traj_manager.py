@@ -3,7 +3,8 @@
 import numpy as np
 import rospy
 from geometry_msgs.msg import PoseStamped, Quaternion
-from rosflight_msgs.msg import Command, BtrajCommand, RCRaw, ControlStatus
+from rosflight_msgs.msg import Command, BtrajCommand, RCRaw
+from marble_common.msg import ControlStatus
 from quadrotor_msgs.msg import PositionCommand
 from nav_msgs.msg import Path, Odometry
 from z_state_estimator.msg import ZStateEst
@@ -124,10 +125,10 @@ class hl_cmd_handler(object):
         command_out.controller_select = 2
 
         while not rospy.is_shutdown():
-            if (takeoff and not self.takeoff_finished):
+            if (False and takeoff and not self.takeoff_finished):
                 # Do takeoff maneuver
                 self.takeoff_finished = True
-            elif (landing and not self.landing_finished):
+            elif (False and landing and not self.landing_finished):
                 self.takeoff_finished = False
             else:
                 # Trajectory Flag = 0 ==> no trajectory available

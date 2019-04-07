@@ -20,6 +20,7 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   rosbag
   roslib
+  marble_common
   z_state_estimator
   )
 find_package(Eigen3 REQUIRED)
