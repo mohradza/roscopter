@@ -203,16 +203,19 @@ class hl_cmd_handler(object):
         else:
             self.MEAS_LANDED_ = False
         # Handle switching to hover from takeoff
-        if (self.z_state_msg.height_agl.data > 0.5 and self.STATE_TAKEOFF_):
+        if (self.z_state_msg.height_agl.data > 0.5 and (self.STATE_TAKEOFF_ or self.STATE_HOVER_)):
             self.MEAS_HOVER_ = True
-
-        # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-        # rospy.loginfo_throttle(self.log_throttle_rate, "z_state_msg:")
-        # rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.height_agl.data)
-        # rospy.loginfo_throttle(self.log_throttle_rate, "z_velocity:")
-        # rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.z_velocity.data)
-        # rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_LANDED_:")
-        # rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_LANDED_)
+        else:
+            self.MEAS_HOVER_ = False
+        rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        rospy.loginfo_throttle(self.log_throttle_rate, "z_state_msg:")
+        rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.height_agl.data)
+        rospy.loginfo_throttle(self.log_throttle_rate, "z_velocity:")
+        rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.z_velocity.data)
+        rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_LANDED_:")
+        rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_LANDED_)
+        rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_HOVER_:")
+        rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_HOVER_)
 
     def pos_cmd_cb(self, msg):
         self.pos_cmd = msg
@@ -250,7 +253,7 @@ class hl_cmd_handler(object):
             # STATE MACHINE
 
             self.STATE_LANDED_ = (self.STATE_LANDED_ or (self.STATE_LANDING_ and (self.CMD_MANUAL_ or self.CMD_ESTOP_) and self.MEAS_LANDED_)) and not self.STATE_TAKEOFF_
-            self.STATE_TAKEOFF_ = (self.STATE_TAKEOFF_ or (self.STATE_LANDED_ and self.CMD_AUTO_)) and not self.STATE_LANDING_ and not self.STATE_HOVER_
+            self.STATE_TAKEOFF_ = (self.STATE_TAKEOFF_ or (self.STATE_LANDED_ and self.CMD_AUTO_ and not self.CMD_ESTOP_)) and not self.STATE_LANDING_ and not self.STATE_HOVER_
             self.STATE_HOVER_ = (self.STATE_HOVER_ or (self.STATE_TAKEOFF_ and self.MEAS_HOVER_) or (self.STATE_TRAJ_TO_HOVER_ and self.MEAS_HOVER_)) and not self.STATE_TRAJ_ and not self.STATE_LANDING_
             self.STATE_TRAJ_ = (self.STATE_TRAJ_ or (self.STATE_HOVER_ and self.CMD_AUTO_ and self.CMD_TRAJ_)) and not self.STATE_LANDING_ and not self.STATE_TRAJ_TO_HOVER_ 
             self.STATE_TRAJ_TO_HOVER_ = (self.STATE_TRAJ_TO_HOVER_ or (self.STATE_TRAJ_ and self.CMD_AUTO_ and self.CMD_HOVER_)) and not self.STATE_HOVER_
