@@ -31,7 +31,7 @@ Controller::Controller() :
   STATE_TRAJ_ = false;
   STATE_TRAJ_TO_STATE_HOVER_ = false;
   STATE_LANDING_ = false;
-  
+
   control_status_ = 0;
 
   limiter_ = 0.0;
@@ -233,7 +233,7 @@ void Controller::controlStatusCallback(const rosflight_msgs::ControlStatusPtr &m
       STATE_LANDING_ = true;
       ROS_WARN_ONCE("CONTROL STATUS ERROR (VALUE OUTSIDE EXPECTED RANGE) --> LAND VEHICLE");
     }
-    
+
 }
 
 
@@ -308,15 +308,21 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   double P, I, D, tau;
   double Kpx, Kdx, Kpy, Kdy, Kpz, Kdz; //bnr gains for a single PD loop in each dimension
   double Kpdx, Kpdy, Kpdz;
+  double Kdvx, Kdvy, Kdvz;
+
 	 double gain_scaler = .25;
 
   Kpx = config.xptot;
   Kpy = config.yptot;
   Kpz = config.zptot;
- 
+
   Kpdx = config.kpdx;
   Kpdy = config.kpdy;
   Kpdz = config.kpdz;
+
+  Kdvx = config.kdvx;
+  Kdvy = config.kdvy;
+  Kdvz = config.kdvz;
 
   Kdx = config.xdtot;
   Kdy = config.ydtot;
@@ -368,9 +374,9 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   PID_ytot_.setGains(Kpy, Kpdy, 0.025, tau, max_.e_dot, -max_.e_dot);
   PID_ztot_.setGains(Kpz, Kpdz, 0.05, tau);
 
-  PID_xveltot_.setGains(Kdx, 0, 0, tau);//bnr - set values for PD controller
-  PID_yveltot_.setGains(Kdy, 0, 0, tau);
-  PID_zveltot_.setGains(Kdz, 0, 0, tau);
+  PID_xveltot_.setGains(Kdx, Kdvx, 0, tau, max_.n_dot, -max_.n_dot);//bnr - set values for PD controller
+  PID_yveltot_.setGains(Kdy, Kdvy, 0, tau, max_.e_dot, -max_.e_dot);
+  PID_zveltot_.setGains(Kdz, Kdvz, 0, tau);
 
   max_.roll = config.max_roll;
   max_.pitch = config.max_pitch;
@@ -427,7 +433,7 @@ void Controller::computeControl(double dt)
     //Assign feedforward accelerations to xff, yff, zff;
     //double xvel_tot = PID_xveltot_.computePID(xc_.x_dot, pxdot, dt);
     //double yvel_tot = PID_yveltot_.computePID(xc_.y_dot, pydot, dt);
-    
+
     double ax = 0.0;
     double ay = 0.0;
 
@@ -461,7 +467,7 @@ void Controller::computeControl(double dt)
     command_.x = saturate(xc_.phi, max_.roll, -max_.roll);
     command_.y = saturate(xc_.theta, max_.pitch, -max_.pitch);
     command_.z = saturate(xc_.r, max_.yaw_rate, -max_.yaw_rate);
-    
+
     // Handle takeoffs and landings
     //if((flight_time_ >= landing_time_) && (flight_time_ < landing_time_ + 1.0))
     //{
