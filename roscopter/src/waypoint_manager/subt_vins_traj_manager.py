@@ -9,6 +9,7 @@ from nav_msgs.msg import Path, Odometry
 from z_state_estimator.msg import ZStateEst
 from marble_common.msg import Estop
 
+
 import tf
 import math
 
@@ -22,6 +23,8 @@ class hl_cmd_handler(object):
         self.newest_frontier = PoseStamped()
 
         self.loop_rate = rospy.Rate(20)
+        self.elapsed = 0.0
+        self.time_limit = 300
         self.height_des = .75
 
         # Define Publishers
@@ -83,8 +86,13 @@ class hl_cmd_handler(object):
         #self.goal_point.pose.position.z = .75
         self.gp_switch = True
         self.gp_reached = False
-        self.gp_thresh = 1.5       # Euclidean distance to goalpointi (m)
+        self.gp_thresh = 1.0       # Euclidean distance to goalpointi (m)
         self.end_traj_switch = True
+
+        self.origin = PoseStamped()
+        self.origin.pose.position.x = 0.0
+        self.origin.pose.position.y = 0.0
+        self.origin.pose.position.z = self.height_des
 
         self.home_cmd = BtrajCommand()
         self.home_cmd.ignore = 0
@@ -238,6 +246,9 @@ class hl_cmd_handler(object):
             self.goal_point = msg
             self.gp_reached = False
         self.new_goal = True
+
+        if(self.elapsed > self.time_limit):
+            self.goal_point = origin
         rospy.loginfo('Goal point received')
 
     def start(self):
@@ -245,9 +256,10 @@ class hl_cmd_handler(object):
         command_out.ignore = 0
         command_out.mode = 4
         command_out.controller_select = 2
-
+        start_time = rospy.Time.now()
         while not rospy.is_shutdown():
-
+            self.elapsed = (rospy.Time.now() - start_time).to_sec()
+            
             # STATE MACHINE
 
             self.STATE_LANDED_ = (self.STATE_LANDED_ or (self.STATE_LANDING_ and (self.CMD_MANUAL_ or self.CMD_ESTOP_) and self.MEAS_LANDED_)) and not self.STATE_TAKEOFF_
@@ -407,7 +419,7 @@ class hl_cmd_handler(object):
                     command_out.z_acc = 0.0
                     command_out.controller_select = 2
                     self.btraj_cmd_pub.publish(command_out)
-                    self.btraj_goalpt_pub.publish(self.newest_frontier)
+                    self.btraj_goalpt_pub.publish(self.goal_point)
             self.control_status_pub.publish(self.control_status)
             self.loop_rate.sleep()
 
