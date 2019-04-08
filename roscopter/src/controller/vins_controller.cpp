@@ -306,29 +306,29 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
                                       uint32_t level)
 {
   double P, I, D, tau;
-  double Kpx, Kdx, Kpy, Kdy, Kpz, Kdz; //bnr gains for a single PD loop in each dimension
-  double Kpdx, Kpdy, Kpdz;
-  double Kdvx, Kdvy, Kdvz;
+  double Kp_x, Kp_y, Kp_z, Kd_x, Kd_y, Kd_z; //bnr gains for a single PD loop in each dimension
+  double Kp_xdot, Kp_ydot, Kp_zdot;
+  double Kd_xdot, Kd_ydot, Kd_zdot;
 
-	 double gain_scaler = .25;
+  double gain_scaler = .25;
 
-  Kpx = config.xptot;
-  Kpy = config.yptot;
-  Kpz = config.zptot;
+  Kp_x = config.kp_x;
+  Kp_y = config.kp_y;
+  Kp_z = config.kp_z;
 
-  Kpdx = config.kpdx;
-  Kpdy = config.kpdy;
-  Kpdz = config.kpdz;
+  Kd_x = config.kd_x;
+  Kd_y = config.kd_y;
+  Kd_z = config.kd_z;
 
-  Kdvx = config.kdvx;
-  Kdvy = config.kdvy;
-  Kdvz = config.kdvz;
+  Kp_xdot = config.kp_xdot;
+  Kp_ydot = config.kp_ydot;
+  Kp_zdot = config.kp_zdot;
 
-  Kdx = config.xdtot;
-  Kdy = config.ydtot;
-  Kdz = config.zdtot;
+  Kd_xdot = config.kd_xdot;
+  Kd_ydot = config.kd_ydot;
+  Kd_zdot = config.kd_zdot;
 
-  // ROS_INFO("Kpdx: %f", Kpdx);
+  ROS_INFO("Kpdx: %f", Kp_x);
 
   tau = config.tau;
   P = config.x_dot_P;
@@ -370,13 +370,13 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   D = config.psi_D;
   PID_psi_.setGains(P, I, D, tau);
 
-  PID_xtot_.setGains(Kpx, Kpdx, 0.025, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
-  PID_ytot_.setGains(Kpy, Kpdy, 0.025, tau, max_.e_dot, -max_.e_dot);
-  PID_ztot_.setGains(Kpz, Kpdz, 0.05, tau);
+  PID_xtot_.setGains(Kp_x, 0.0, Kd_x, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
+  PID_ytot_.setGains(Kp_y, 0.0, Kd_y, tau, max_.e_dot, -max_.e_dot);
+  PID_ztot_.setGains(Kp_z, 0.0, Kd_z, tau);
 
-  PID_xveltot_.setGains(Kdx, Kdvx, 0, tau, max_.n_dot, -max_.n_dot);//bnr - set values for PD controller
-  PID_yveltot_.setGains(Kdy, Kdvy, 0, tau, max_.e_dot, -max_.e_dot);
-  PID_zveltot_.setGains(Kdz, Kdvz, 0, tau);
+  PID_xveltot_.setGains(Kp_xdot, 0.0, Kd_xdot, tau, max_.n_dot, -max_.n_dot);//bnr - set values for PD controller
+  PID_yveltot_.setGains(Kp_ydot, 0.0, Kd_ydot, tau, max_.e_dot, -max_.e_dot);
+  PID_zveltot_.setGains(Kp_zdot, 0.0, Kd_zdot, tau);
 
   max_.roll = config.max_roll;
   max_.pitch = config.max_pitch;

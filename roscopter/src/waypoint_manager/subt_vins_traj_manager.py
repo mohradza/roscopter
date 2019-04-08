@@ -19,13 +19,13 @@ class hl_cmd_handler(object):
         # Define Variables
         self.rc_msg = RCRaw()
         self.pos_cmd = PositionCommand()
-        self.control_status = ControlStatus()
         self.newest_frontier = PoseStamped()
 
         self.loop_rate = rospy.Rate(20)
         self.elapsed = 0.0
         self.time_limit = 300
         self.height_des = .75
+        self.hover_switch = True
 
         # Define Publishers
         self.cmd_pub = rospy.Publisher('high_level_command', Command, queue_size=10)
@@ -212,15 +212,16 @@ class hl_cmd_handler(object):
             self.MEAS_HOVER_ = True
         else:
             self.MEAS_HOVER_ = False
-        rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-        rospy.loginfo_throttle(self.log_throttle_rate, "z_state_msg:")
-        rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.height_agl.data)
-        rospy.loginfo_throttle(self.log_throttle_rate, "z_velocity:")
-        rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.z_velocity.data)
-        rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_LANDED_:")
-        rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_LANDED_)
-        rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_HOVER_:")
-        rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_HOVER_)
+       
+        #rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+        #rospy.loginfo_throttle(self.log_throttle_rate, "z_state_msg:")
+        #rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.height_agl.data)
+        #rospy.loginfo_throttle(self.log_throttle_rate, "z_velocity:")
+        #rospy.loginfo_throttle(self.log_throttle_rate, self.z_state_msg.z_velocity.data)
+        #rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_LANDED_:")
+        #rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_LANDED_)
+        #rospy.loginfo_throttle(self.log_throttle_rate, "MEAS_HOVER_:")
+        #rospy.loginfo_throttle(self.log_throttle_rate, self.MEAS_HOVER_)
 
     def pos_cmd_cb(self, msg):
         self.pos_cmd = msg
@@ -264,7 +265,7 @@ class hl_cmd_handler(object):
 
             self.STATE_LANDED_ = (self.STATE_LANDED_ or (self.STATE_LANDING_ and (self.CMD_MANUAL_ or self.CMD_ESTOP_) and self.MEAS_LANDED_)) and not self.STATE_TAKEOFF_
             self.STATE_TAKEOFF_ = (self.STATE_TAKEOFF_ or (self.STATE_LANDED_ and self.CMD_AUTO_ and not self.CMD_ESTOP_)) and not self.STATE_LANDING_ and not self.STATE_HOVER_
-            self.STATE_HOVER_ = (self.STATE_HOVER_ or (self.STATE_TAKEOFF_ and self.MEAS_HOVER_) or (self.STATE_TRAJ_TO_HOVER_ and self.MEAS_HOVER_)) and not self.STATE_TRAJ_ and not self.STATE_LANDING_
+            self.STATE_HOVER_ = (self.STATE_HOVER_ or (self.STATE_TAKEOFF_ and self.MEAS_HOVER_) or (self.STATE_TRAJ_TO_HOVER_ and self.CMD_HOVER_)) and not self.STATE_TRAJ_ and not self.STATE_LANDING_
             self.STATE_TRAJ_ = (self.STATE_TRAJ_ or (self.STATE_HOVER_ and self.CMD_AUTO_ and self.CMD_TRAJ_)) and not self.STATE_LANDING_ and not self.STATE_TRAJ_TO_HOVER_
             self.STATE_TRAJ_TO_HOVER_ = (self.STATE_TRAJ_TO_HOVER_ or (self.STATE_TRAJ_ and self.CMD_AUTO_ and self.CMD_HOVER_)) and not self.STATE_HOVER_
             self.STATE_LANDING_ = (self.STATE_LANDING_ or (self.STATE_TAKEOFF_ and self.CMD_ESTOP_) or (self.STATE_HOVER_ and self.CMD_ESTOP_) or (self.STATE_TRAJ_ and self.CMD_ESTOP_) or (self.STATE_TAKEOFF_ and self.CMD_MANUAL_) or (self.STATE_HOVER_ and self.CMD_MANUAL_) or (self.STATE_TRAJ_ and self.CMD_MANUAL_)) and not self.STATE_LANDED_
@@ -345,7 +346,8 @@ class hl_cmd_handler(object):
                 #    self.btraj_cmd_pub.publish(command_out)
                 # If we have a trajectory from Btraj, follow it
                 elif(self.pos_cmd.trajectory_flag == 1 or self.pos_cmd.trajectory_flag == 3):
-                    if(self.STATE_HOVER_ and self.pos_cmd.trajector_flag == 1):
+                    self.hover_switch = True
+                    if(self.STATE_HOVER_ and self.pos_cmd.trajectory_flag == 1):
                         self.CMD_TRAJ_ = True
                     # Use velocity vector instead
                     psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
@@ -401,7 +403,6 @@ class hl_cmd_handler(object):
                         command_out.y_acc = self.pos_cmd.acceleration.y
                         command_out.z_acc = self.pos_cmd.acceleration.z
                         command_out.controller_select = 2
-                    self.btraj_cmd_pub.publish(command_out)
                 elif(self.pos_cmd.trajectory_flag == 7):
                     rospy.loginfo_throttle(2, 'Planning failure, waiting for trajectory')
                     if(self.hover_switch):
@@ -418,8 +419,8 @@ class hl_cmd_handler(object):
                     command_out.y_acc = 0.0
                     command_out.z_acc = 0.0
                     command_out.controller_select = 2
-                    self.btraj_cmd_pub.publish(command_out)
                     self.btraj_goalpt_pub.publish(self.goal_point)
+            self.btraj_cmd_pub.publish(command_out)
             self.control_status_pub.publish(self.control_status)
             self.loop_rate.sleep()
 

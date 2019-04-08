@@ -48,9 +48,9 @@ class hl_cmd_handler(object):
         self.gp_switch = 0
 
         self.home_cmd = BtrajCommand()
-        self.home_cmd.ignore = 0
+        self.home_cmd.ignore = 7
         self.home_cmd.mode = 4
-        self.home_cmd.controller_select = 1
+        self.home_cmd.controller_select = 2
         self.home_cmd.x = 0.0
         self.home_cmd.y = 0.0
         self.home_cmd.z = 0.0
