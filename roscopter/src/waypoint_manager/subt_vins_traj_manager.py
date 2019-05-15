@@ -349,6 +349,7 @@ class hl_cmd_handler(object):
                     self.hover_switch = True
                     if(self.STATE_HOVER_ and self.pos_cmd.trajectory_flag == 1):
                         self.CMD_TRAJ_ = True
+                        self.CMD_HOVER_ = False
                     # Use velocity vector instead
                     psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
 
@@ -371,6 +372,7 @@ class hl_cmd_handler(object):
                     if(self.pos_cmd.trajectory_flag == 3):
                         if(self.STATE_TRAJ_):
                             self.CMD_HOVER_ = True
+                            self.CMD_TRAJ_ = False
                         rospy.loginfo_throttle(2, 'End of current trajectory')
                         if(self.end_traj_switch):
                             self.end_traj_switch = False
