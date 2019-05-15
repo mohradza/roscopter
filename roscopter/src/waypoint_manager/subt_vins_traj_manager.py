@@ -23,9 +23,10 @@ class hl_cmd_handler(object):
 
         self.loop_rate = rospy.Rate(20)
         self.elapsed = 0.0
-        self.time_limit = 300
+        self.time_limit = 150
         self.height_des = .75
         self.hover_switch = True
+        self.elapsed_switch = True
 
         # Define Publishers
         self.cmd_pub = rospy.Publisher('high_level_command', Command, queue_size=10)
@@ -247,9 +248,8 @@ class hl_cmd_handler(object):
             self.goal_point = msg
             self.gp_reached = False
         self.new_goal = True
-
         if(self.elapsed > self.time_limit):
-            self.goal_point = origin
+            self.goal_point = self.origin
         rospy.loginfo('Goal point received')
 
     def start(self):
@@ -329,6 +329,11 @@ class hl_cmd_handler(object):
             elif(self.STATE_LANDED_):# and not self.landing_finished):
                 pass
             elif(self.STATE_HOVER_ or self.STATE_TRAJ_):
+                if(self.elapsed > self.time_limit and self.elapsed_switch):
+                    self.goal_point = self.origin
+                    self.elapsed_switch = False
+                    self.btraj_goalpt_pub.publish(self.goal_point)
+
                 # Trajectory Flag = 0 ==> no trajectory available
                 if(self.pos_cmd.trajectory_flag == 0):
                     rospy.loginfo_throttle(2, 'Commanding home position')
@@ -350,6 +355,7 @@ class hl_cmd_handler(object):
                     if(self.STATE_HOVER_ and self.pos_cmd.trajectory_flag == 1):
                         self.CMD_TRAJ_ = True
                         self.CMD_HOVER_ = False
+                    
                     # Use velocity vector instead
                     psi_des = math.atan2(self.pos_cmd.velocity.y, self.pos_cmd.velocity.x)
 
@@ -388,6 +394,7 @@ class hl_cmd_handler(object):
                         command_out.y_acc = 0.0
                         command_out.z_acc = 0.0
                         command_out.controller_select = 2
+                        self.btraj_goalpt_pub.publish(self.goal_point)
                     else:
                         self.frontier_switch = True
                         self.end_traj_switch = True
