@@ -46,13 +46,13 @@ include_directories(include
   )
 
 ## Declare cpp executables
-add_executable(controller
-  src/controller/controller_node.cpp
-  src/controller/controller.cpp
-  include/controller/controller.h
-  src/controller/simple_pid.cpp)
-add_dependencies(controller ${catkin_EXPORTED_TARGETS})
-target_link_libraries(controller ${catkin_LIBRARIES})
+#add_executable(controller
+#  src/controller/controller_node.cpp
+#  src/controller/controller.cpp
+#  include/controller/controller.h
+#  src/controller/simple_pid.cpp)
+#add_dependencies(controller ${catkin_EXPORTED_TARGETS})
+#target_link_libraries(controller ${catkin_LIBRARIES})
 
 add_executable(vins_controller
   src/controller/controller_node.cpp

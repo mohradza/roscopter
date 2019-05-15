@@ -25,32 +25,35 @@
     <param name="down_I" type="double" value="0.0" />
     <param name="down_D" type="double" value="0.0" />
     
-    <param name="psi_P" type="double" value=".5" />
+    <param name="psi_P" type="double" value=".75" />
     <param name="psi_I" type="double" value="0.0" />
-    <param name="psi_D" type="double" value="0.0" />
+    <param name="psi_D" type="double" value="0.1" />
   
-    <param name="xptot" type="double" value="0.1" /> <!-- .15 -->
-    <param name="yptot" type="double" value="0.1" />
-    <param name="zptot" type="double" value="0.2" />
-    <param name="kpdx" type="double" value="0.0" /> <!-- .15 -->
-    <param name="kpdy" type="double" value="0.0" />
-    <param name="kpdz" type="double" value="0.0" />
-    <param name="xdtot" type="double" value="0.25" />
-    <param name="ydtot" type="double" value="0.25" />
-    <param name="zdtot" type="double" value="0.2" />
-    <param name="kdvx" type="double" value="0.05" /> <!-- .15 -->
-    <param name="kdvy" type="double" value="0.05" />
-    <param name="kdvz" type="double" value="0.0" />
+    <param name="kp_x" type="double" value="0.4" /> <!-- .15 -->
+    <param name="kp_y" type="double" value="0.4" />
+    <param name="kp_z" type="double" value="0.2" />
+    
+    <param name="kd_x" type="double" value="0.1" /> <!-- .15 -->
+    <param name="kd_y" type="double" value="0.1" />
+    <param name="kd_z" type="double" value="0.0" />
+   
+    <param name="kp_xdot" type="double" value="0.3" />
+    <param name="kp_ydot" type="double" value="0.3" />
+    <param name="kp_zdot" type="double" value="0.2" />
+  
+    <param name="kd_xdot" type="double" value="0.15" /> <!-- .15 -->
+    <param name="kd_ydot" type="double" value="0.15" />
+    <param name="kd_zdot" type="double" value="0.0" />
  
     <param name="tau" type="double" value="0.05" />
-    <param name="equilibrium_throttle" type="double" value="0.61" />
+    <param name="equilibrium_throttle" type="double" value="0.62" />
 
     <param name="max_roll" type="double" value="0.195" />
     <param name="max_pitch" type="double" value="0.195" />
     <param name="max_yaw_rate" type="double" value="0.4" />
     <param name="max_throttle" type="double" value=".85" />
-    <param name="max_n_dot" type="double" value="0.75" />
-    <param name="max_e_dot" type="double" value="0.75" />
+    <param name="max_n_dot" type="double" value="1.5" />
+    <param name="max_e_dot" type="double" value="1.5" />
     <param name="max_d_dot" type="double" value="0.75" />
 
   </node>

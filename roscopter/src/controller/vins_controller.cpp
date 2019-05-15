@@ -22,19 +22,21 @@ Controller::Controller() :
 
   // Landing / takeoff variables
   is_flying_ = false;
-  landing_ = false;
-  time_landing_ = false;
-  takeoff_ = false;
-  landed_ = false;
+
+  timed_landing_ = false;
+
+  STATE_LANDED_ = false;
+  STATE_TAKEOFF_ = false;
+  STATE_HOVER_ = false;
+  STATE_TRAJ_ = false;
+  STATE_TRAJ_TO_STATE_HOVER_ = false;
+  STATE_LANDING_ = false;
+
   control_status_ = 0;
 
-  takeoff_limiter_ = 0.0;
+  limiter_ = 0.0;
   takeoff_slew_rate_ = 0.010;
-
-  landing_limiter_ = 1.0;
   landing_slew_rate_ = -0.00333;
-
-  landed_limiter_ = 0.0;
 
   start_time_ = ros::WallTime::now();
   landing_time_ = 20;
@@ -157,16 +159,81 @@ void Controller::controlStatusCallback(const rosflight_msgs::ControlStatusPtr &m
 {
     control_status_ = msg->control_status;
     //0: On Ground, 1: Takeoff, 2: Hover, 3: Turn, 4: Trajectory, 5: Landing
-    if(control_status_ == 1){
-        takeoff_ = true;
-	landing_ = false;
-    } else if (control_status_ == 5){
-        takeoff_ = true;
-	landing_ = true;
-    } else{
-        takeoff_ = false;
-	landing_ = false;
+    if(control_status_ == 0) // LANDED
+    {
+      STATE_LANDED_ = true;
+      STATE_TAKEOFF_ = false;
+      STATE_HOVER_ = false;
+      STATE_TRAJ_ = false;
+      STATE_TRAJ_TO_STATE_HOVER_ = false;
+      STATE_LANDING_ = false;
     }
+    else if(control_status_ == 1) // TAKEOFF
+    {
+      STATE_LANDED_ = false;
+      STATE_TAKEOFF_ = true;
+      STATE_HOVER_ = false;
+      STATE_TRAJ_ = false;
+      STATE_TRAJ_TO_STATE_HOVER_ = false;
+      STATE_LANDING_ = false;
+    }
+    else if(control_status_ == 2) // HOVER
+    {
+      STATE_LANDED_ = false;
+      STATE_TAKEOFF_ = false;
+      STATE_HOVER_ = true;
+      STATE_TRAJ_ = false;
+      STATE_TRAJ_TO_STATE_HOVER_ = false;
+      STATE_LANDING_ = false;
+    }
+    else if(control_status_ == 3) // TRAJECTORY TO HOVER
+    {
+      STATE_LANDED_ = false;
+      STATE_TAKEOFF_ = false;
+      STATE_HOVER_ = false;
+      STATE_TRAJ_ = false;
+      STATE_TRAJ_TO_STATE_HOVER_ = false;
+      STATE_LANDING_ = false;
+    }
+    else if(control_status_ == 4) // TRAJECTORY TO HOVER
+    {
+      STATE_LANDED_ = false;
+      STATE_TAKEOFF_ = false;
+      STATE_HOVER_ = false;
+      STATE_TRAJ_ = true;
+      STATE_TRAJ_TO_STATE_HOVER_ = false;
+      STATE_LANDING_ = false;
+    }
+    else if(control_status_ == 5) // LANDING
+    {
+      STATE_LANDED_ = false;
+      STATE_TAKEOFF_ = false;
+      STATE_HOVER_ = false;
+      STATE_TRAJ_ = false;
+      STATE_TRAJ_TO_STATE_HOVER_ = true;
+      STATE_LANDING_ = true;
+    }
+    else if(control_status_ == 6) // ERROR (LAND VEHICLE)
+    {
+      STATE_LANDED_ = false;
+      STATE_TAKEOFF_ = false;
+      STATE_HOVER_ = false;
+      STATE_TRAJ_ = false;
+      STATE_TRAJ_TO_STATE_HOVER_ = false;
+      STATE_LANDING_ = true;
+      ROS_WARN_ONCE("CONTROL STATUS ERROR = 6 (STATE MACHINE ERROR) --> LAND VEHICLE");
+    }
+    else // ERROR
+    {
+      STATE_LANDED_ = false;
+      STATE_TAKEOFF_ = false;
+      STATE_HOVER_ = false;
+      STATE_TRAJ_ = false;
+      STATE_TRAJ_TO_STATE_HOVER_ = false;
+      STATE_LANDING_ = true;
+      ROS_WARN_ONCE("CONTROL STATUS ERROR (VALUE OUTSIDE EXPECTED RANGE) --> LAND VEHICLE");
+    }
+
 }
 
 
@@ -179,7 +246,6 @@ void Controller::statusCallback(const rosflight_msgs::StatusConstPtr &msg)
 {
     armed_ = msg->armed;
 }
-
 
 void Controller::cmdCallback(const rosflight_msgs::CommandConstPtr &msg)
 {
@@ -240,28 +306,29 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
                                       uint32_t level)
 {
   double P, I, D, tau;
-  double Kpx, Kdx, Kpy, Kdy, Kpz, Kdz; //bnr gains for a single PD loop in each dimension
-  double Kpdx, Kpdy, Kpdz;
-  double Kdvx, Kdvy, Kdvz;
-	 double gain_scaler = .25;
+  double Kp_x, Kp_y, Kp_z, Kd_x, Kd_y, Kd_z; //bnr gains for a single PD loop in each dimension
+  double Kp_xdot, Kp_ydot, Kp_zdot;
+  double Kd_xdot, Kd_ydot, Kd_zdot;
 
-  Kpx = config.xptot;
-  Kpy = config.yptot;
-  Kpz = config.zptot;
- 
-  Kpdx = config.kpdx;
-  Kpdy = config.kpdy;
-  Kpdz = config.kpdz;
-  
-  Kdvx = config.kdvx;
-  Kdvy = config.kdvy;
-  Kdvz = config.kdvz;
+  double gain_scaler = .25;
 
-  Kdx = config.xdtot;
-  Kdy = config.ydtot;
-  Kdz = config.zdtot;
+  Kp_x = config.kp_x;
+  Kp_y = config.kp_y;
+  Kp_z = config.kp_z;
 
-  ROS_INFO("Kpdx: %f", Kpdx);
+  Kd_x = config.kd_x;
+  Kd_y = config.kd_y;
+  Kd_z = config.kd_z;
+
+  Kp_xdot = config.kp_xdot;
+  Kp_ydot = config.kp_ydot;
+  Kp_zdot = config.kp_zdot;
+
+  Kd_xdot = config.kd_xdot;
+  Kd_ydot = config.kd_ydot;
+  Kd_zdot = config.kd_zdot;
+
+  ROS_INFO("Kpdx: %f", Kp_x);
 
   tau = config.tau;
   P = config.x_dot_P;
@@ -303,13 +370,13 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   D = config.psi_D;
   PID_psi_.setGains(P, I, D, tau);
 
-  PID_xtot_.setGains(Kpx, Kpdx, 0.025, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
-  PID_ytot_.setGains(Kpy, Kpdy, 0.025, tau, max_.e_dot, -max_.e_dot);
-  PID_ztot_.setGains(Kpz, Kpdz, 0.05, tau);
+  PID_xtot_.setGains(Kp_x, 0.0, Kd_x, tau, max_.n_dot, -max_.n_dot); //bnr - set values for PD controller
+  PID_ytot_.setGains(Kp_y, 0.0, Kd_y, tau, max_.e_dot, -max_.e_dot);
+  PID_ztot_.setGains(Kp_z, 0.0, Kd_z, tau);
 
-  PID_xveltot_.setGains(Kdx, Kdvx, 0, tau, max_.n_dot, -max_.n_dot);//bnr - set values for PD controller
-  PID_yveltot_.setGains(Kdy, Kdvy, 0, tau, max_.e_dot, -max_.e_dot);
-  PID_zveltot_.setGains(Kdz, Kdvz, 0, tau);
+  PID_xveltot_.setGains(Kp_xdot, 0.0, Kd_xdot, tau, max_.n_dot, -max_.n_dot);//bnr - set values for PD controller
+  PID_yveltot_.setGains(Kp_ydot, 0.0, Kd_ydot, tau, max_.e_dot, -max_.e_dot);
+  PID_zveltot_.setGains(Kp_zdot, 0.0, Kd_zdot, tau);
 
   max_.roll = config.max_roll;
   max_.pitch = config.max_pitch;
@@ -325,7 +392,6 @@ void Controller::reconfigure_callback(roscopter::ControllerConfig& config,
   ROS_INFO("new gains");
   resetIntegrators();
 }
-
 
 void Controller::computeControl(double dt)
 {
@@ -367,7 +433,7 @@ void Controller::computeControl(double dt)
     //Assign feedforward accelerations to xff, yff, zff;
     //double xvel_tot = PID_xveltot_.computePID(xc_.x_dot, pxdot, dt);
     //double yvel_tot = PID_yveltot_.computePID(xc_.y_dot, pydot, dt);
-    
+
     double ax = 0.0;
     double ay = 0.0;
 
@@ -401,65 +467,57 @@ void Controller::computeControl(double dt)
     command_.x = saturate(xc_.phi, max_.roll, -max_.roll);
     command_.y = saturate(xc_.theta, max_.pitch, -max_.pitch);
     command_.z = saturate(xc_.r, max_.yaw_rate, -max_.yaw_rate);
-    
+
     // Handle takeoffs and landings
     //if((flight_time_ >= landing_time_) && (flight_time_ < landing_time_ + 1.0))
     //{
-    //	      time_landing_= 1;
+    //	      timed_landing_= 1;
     //}
 
-    if(takeoff_)
+    if(STATE_LANDED_)
     {
-        landed_ = false;
-    	takeoff_limiter_ = takeoff_limiter_ + takeoff_slew_rate_;
-        ROS_INFO_THROTTLE(1,"command_.F before limiting (takeoff): %f", command_.F);
-        command_.F = takeoff_limiter_ * command_.F;
-        ROS_INFO_THROTTLE(1,"command_.F after  limiting (takeoff): %f", command_.F);
-        ROS_INFO_THROTTLE(1,"limiter (takeoff): %f", takeoff_limiter_);
-        
-	if(takeoff_limiter_ >= 1)
-        {
-            takeoff_limiter_ = 0;
-            takeoff_ = 0;
-        }
+      limiter_ = 0;
+      ROS_INFO_THROTTLE(1,"command_.F before limiting (STATE_LANDED_): %f", command_.F);
+      command_.F = limiter_ * command_.F;
+      ROS_INFO_THROTTLE(1,"command_.F after  limiting (STATE_LANDED_): %f", command_.F);
+      ROS_INFO_THROTTLE(1,"limiter (takeoff): %f", limiter_);
     }
-        
-    if(landing_)
+    if(STATE_TAKEOFF_)
     {
-        landing_limiter_ = landing_limiter_ + landing_slew_rate_;
-        ROS_INFO_THROTTLE(1,"command_.F before limiting (landing): %f", command_.F);
-        command_.F = landing_limiter_ * command_.F;
-        ROS_INFO_THROTTLE(1,"command_.F after limiting (landing): %f", command_.F);
-        ROS_INFO_THROTTLE(1,"limiter (landing): %f", landing_limiter_);
-            
-      	if(landing_limiter_ < 0.5)
-        {
-            landing_limiter_ = 1;
-            landing_ = 0;
-            landed_ = 1;
-        }
+    	limiter_ = limiter_ + takeoff_slew_rate_;
+      ROS_INFO_THROTTLE(1,"command_.F before limiting (STATE_TAKEOFF_): %f", command_.F);
+      command_.F = limiter_ * command_.F;
+      ROS_INFO_THROTTLE(1,"command_.F after  limiting (STATE_TAKEOFF_): %f", command_.F);
+      ROS_INFO_THROTTLE(1,"limiter (takeoff): %f", limiter_);
     }
-	
-    if(landed_)
+    if(STATE_HOVER_ && limiter_ < 1)
     {
-        landed_limiter_ = 0;
-        ROS_INFO_THROTTLE(1,"command_.F before limiting (landed): %f", command_.F);
-        command_.F = landed_limiter_ * command_.F;
-        ROS_INFO_THROTTLE(1,"command_.F after limiting (landed): %f", command_.F);
-        ROS_INFO_THROTTLE(1,"limiter (landed): %f", landed_limiter_);
+    	limiter_ = limiter_ + takeoff_slew_rate_;
+      ROS_INFO_THROTTLE(1,"command_.F before limiting (STATE_HOVER_): %f", command_.F);
+      command_.F = limiter_ * command_.F;
+      ROS_INFO_THROTTLE(1,"command_.F after  limiting (STATE_HOVER_): %f", command_.F);
+      ROS_INFO_THROTTLE(1,"limiter (takeoff): %f", limiter_);
     }
-        
-    ROS_INFO_THROTTLE(1, "takeoff_: %d", takeoff_);
-    ROS_INFO_THROTTLE(1, "landing_: %d", landing_);
-    ROS_INFO_THROTTLE(1, "landed_: %d", landed_);
+    if(STATE_HOVER_ && limiter_ >= 1)
+    {
+      limiter_ = 1;
+      ROS_INFO_THROTTLE(1,"command_.F before limiting (STATE_HOVER_): %f", command_.F);
+      command_.F = limiter_ * command_.F;
+      ROS_INFO_THROTTLE(1,"command_.F after  limiting (STATE_HOVER_): %f", command_.F);
+      ROS_INFO_THROTTLE(1,"limiter (takeoff): %f", limiter_);
+    }
+    if(STATE_LANDING_)
+    {
+    	limiter_ = limiter_ + landing_slew_rate_;
+      ROS_INFO_THROTTLE(1,"command_.F before limiting (STATE_LANDING_): %f", command_.F);
+      command_.F = limiter_ * command_.F;
+      ROS_INFO_THROTTLE(1,"command_.F after  limiting (STATE_LANDING_): %f", command_.F);
+      ROS_INFO_THROTTLE(1,"limiter (takeoff): %f", limiter_);
+    }
 
-    // Pack up and send the command
-    command_.mode = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
-    command_.ignore = ignore_;
-    command_.F = saturate(xc_.throttle, max_.throttle, 0.0);
-    command_.x = saturate(xc_.phi, max_.roll, -max_.roll);
-    command_.y = saturate(xc_.theta, max_.pitch, -max_.pitch);
-    command_.z = saturate(xc_.r, max_.yaw_rate, -max_.yaw_rate);
+    ROS_INFO_THROTTLE(1, "STATE_TAKEOFF_: %d", STATE_TAKEOFF_);
+    ROS_INFO_THROTTLE(1, "STATE_LANDING_: %d", STATE_LANDING_);
+    ROS_INFO_THROTTLE(1, "STATE_LANDED_: %d", STATE_LANDED_);
 }
 
 void Controller::publishCommand()

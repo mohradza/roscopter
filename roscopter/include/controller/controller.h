@@ -6,6 +6,7 @@
 #include <rosflight_msgs/BtrajCommand.h>
 #include <rosflight_msgs/Status.h>
 #include <rosflight_msgs/ControlStatus.h>
+#include <rosflight_msgs/RCRaw.h>
 #include <z_state_estimator/ZStateEst.h>
 #include <controller/simple_pid.h>
 #include <nav_msgs/Odometry.h>
@@ -97,6 +98,7 @@ private:
   ros::Subscriber attitude_sub_;
   ros::Subscriber z_est_sub_;
   ros::Subscriber control_status_sub_;
+  ros::Subscriber rc_raw_sub_;
   ros::Publisher command_pub_;
 
   // Paramters
@@ -109,16 +111,19 @@ private:
   double pn_dot_;
   double pe_dot_;
   
-  double takeoff_limiter_;
+  double limiter_;
   double takeoff_slew_rate_;
-  double landing_limiter_;
   double landing_slew_rate_;
-  double landed_limiter_;
 
-  bool landed_;
-  bool landing_;
-  bool time_landing_;
-  bool takeoff_;
+  bool STATE_LANDED_;
+  bool STATE_TAKEOFF_;
+  bool STATE_HOVER_;
+  bool STATE_TRAJ_;
+  bool STATE_TRAJ_TO_STATE_HOVER_;
+  bool STATE_LANDING_;
+
+  bool timed_landing_;
+
   int control_status_;
 
   ros::WallTime start_time_;
@@ -126,9 +131,12 @@ private:
   double flight_time_;
   double landing_time_;
 
-  bool is_flying_;
   bool armed_;
+  bool is_flying_;
   int ignore_;
+
+  uint16_t takeoff_switch_value_;
+  bool takeoff_switch_cmd_;
 
   // PID Controllers
   controller::SimplePID PID_x_dot_;
@@ -168,6 +176,7 @@ private:
   void cmdCallback(const rosflight_msgs::CommandConstPtr &msg);
   void btrajCmdCallback(const rosflight_msgs::BtrajCommandConstPtr &msg);
   void statusCallback(const rosflight_msgs::StatusConstPtr &msg);
+  void rcCallback(const rosflight_msgs::RCRaw &msg);
   void controlStatusCallback(const rosflight_msgs::ControlStatusPtr &msg);
 
   void computeControl(double dt);
