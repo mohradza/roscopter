@@ -33,6 +33,8 @@ class hl_cmd_handler(object):
         self.max_vel = .5
         self.max_yawrate = .2
 
+        self.estop = True
+
         # Define Publishers
         self.cmd_vel_pub = rospy.Publisher('cmd_vel', TwistStamped, queue_size=10)
 
@@ -46,6 +48,14 @@ class hl_cmd_handler(object):
 
     def state_est_cb(self, msg):
         self.state_estimate = msg
+
+    def bluetooth_joy_cb(self, msg):
+        if((msg.buttons[1] == 1) and (self.flag_estop == False)):
+            self.flag_estop = True
+
+        if((msg.buttons[0] == 1) and (self.flag_estop == True)):
+            self.flag_estop = False
+
 
     # GOAL POINT SWitCHING LOGIC NEEDS TO
     # BE VERIFIED
@@ -118,6 +128,11 @@ class hl_cmd_handler(object):
                 rospy.loginfo_throttle(2,'End of current trajectory, staying in place')
                 self.command_out.twist.linear.x = 0.0
                 self.command_out.twist.angular.z = 0.0
+
+            if (self.flag_estop):
+                self.command_out.twist.linear.x = 0.0
+                self.command_out.twist.angular.z = 0.0
+
             self.cmd_vel_pub.publish(command_out)
             self.loop_rate.sleep()
 
