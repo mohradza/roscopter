@@ -23,8 +23,8 @@ class hl_cmd_handler(object):
 
         self.loop_rate = rospy.Rate(20)
         self.elapsed = 0.0
-        self.time_limit = 150
-        self.height_des = .75
+        self.time_limit = 10000
+        self.height_des = .65
         self.hover_switch = True
         self.elapsed_switch = True
 
@@ -146,6 +146,15 @@ class hl_cmd_handler(object):
         else:
             self.CMD_AUTO_ = False
             self.CMD_MANUAL_ = True
+
+        if(self.rc_msg.values[6] > 1500):
+            rospy.loginfo_throttle(1,'PUB SWITCH!')
+            if(self.pub_switch):
+                self.btraj_goalpt_pub.publish(self.goal_point)
+                self.pub_switch=False
+        else:
+            self.pub_switch=True
+
 
         # rospy.loginfo_throttle(self.log_throttle_rate, "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
         # rospy.loginfo_throttle(self.log_throttle_rate, "RC_SWITCH_AUTONOMOUS_:")
@@ -329,7 +338,7 @@ class hl_cmd_handler(object):
             elif(self.STATE_LANDED_):# and not self.landing_finished):
                 pass
             elif(self.STATE_HOVER_ or self.STATE_TRAJ_):
-                if(self.elapsed > self.time_limit and self.elapsed_switch):
+                if(False and (self.elapsed > self.time_limit and self.elapsed_switch)):
                     self.goal_point = self.origin
                     self.elapsed_switch = False
                     self.btraj_goalpt_pub.publish(self.goal_point)

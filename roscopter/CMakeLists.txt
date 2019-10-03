@@ -53,13 +53,13 @@ include_directories(include
 #add_dependencies(controller ${catkin_EXPORTED_TARGETS})
 #target_link_libraries(controller ${catkin_LIBRARIES})
 
-add_executable(vins_controller
-  src/controller/controller_node.cpp
-  src/controller/vins_controller.cpp
-  include/controller/controller.h
-  src/controller/simple_pid.cpp)
-add_dependencies(vins_controller ${catkin_EXPORTED_TARGETS})
-target_link_libraries(vins_controller ${catkin_LIBRARIES})
+#add_executable(vins_controller
+#  src/controller/controller_node.cpp
+#  src/controller/vins_controller.cpp
+#  include/controller/controller.h
+#  src/controller/simple_pid.cpp)
+#add_dependencies(vins_controller ${catkin_EXPORTED_TARGETS})
+#target_link_libraries(vins_controller ${catkin_LIBRARIES})
 
 #add_library(ekf
 	#  src/ekf/ekf.cpp

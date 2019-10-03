@@ -41,8 +41,8 @@
     <param name="kp_ydot" type="double" value="0.3" />
     <param name="kp_zdot" type="double" value="0.2" />
   
-    <param name="kd_xdot" type="double" value="0.15" /> <!-- .15 -->
-    <param name="kd_ydot" type="double" value="0.15" />
+    <param name="kd_xdot" type="double" value="0.05" /> <!-- .15 -->
+    <param name="kd_ydot" type="double" value="0.05" />
     <param name="kd_zdot" type="double" value="0.0" />
  
     <param name="tau" type="double" value="0.05" />
