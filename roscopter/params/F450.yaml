@@ -28,8 +28,8 @@ y_dot_P: 0.5,
 y_dot_I: 0.0,
 y_dot_D: 0.05,
 
-z_dot_P: 0.6,
-z_dot_I: 0.25,
+z_dot_P: .5,
+z_dot_I: 0.0,
 z_dot_D: 0.1,
 
 north_P: 1.0,
@@ -50,12 +50,12 @@ psi_D: 0.0,
 
 tau: 0.05,
 
-equilibrium_throttle: 0.65,
+equilibrium_throttle: 0.675,
 
 max_roll: 0.196,
 max_pitch: 0.196,
 max_yaw_rate: 0.785,
-max_throttle: 0.85,
+max_throttle: 0.9,
 max_n_dot: 1.5,
 max_e_dot: 1.5,
 max_d_dot: 0.5

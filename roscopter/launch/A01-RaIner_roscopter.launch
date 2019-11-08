@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <!-- PID Position Controller -->
+  <node name="controller" pkg="roscopter" type="controller" output="screen">
+	  <remap from="estimate" to="/odometry/filtered"/>
+  </node>
+
+  <rosparam command="load" file="$(find roscopter)/params/F450.yaml"/>
+
+
+  <!-- Waypoint Manager -->
+  <node name="waypoint_manager" pkg="roscopter" type="simple_command_pub.py" output="screen">
+	  <!--  <remap from="waypoint" to="high_level_command"/> -->
+  </node>
+
+</launch>

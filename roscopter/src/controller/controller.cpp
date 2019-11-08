@@ -64,12 +64,12 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
 
   // This should already be coming in NED
   xhat_.pn = msg->pose.pose.position.x;
-  xhat_.pe = msg->pose.pose.position.y;
-  xhat_.pd = msg->pose.pose.position.z;
+  xhat_.pe = -msg->pose.pose.position.y;
+  xhat_.pd = -msg->pose.pose.position.z;
 
   xhat_.u = msg->twist.twist.linear.x;
-  xhat_.v = msg->twist.twist.linear.y;
-  xhat_.w = msg->twist.twist.linear.z;
+  xhat_.v = -msg->twist.twist.linear.y;
+  xhat_.w = -msg->twist.twist.linear.z;
 
   // Convert Quaternion to RPY
   tf::Quaternion tf_quat;
@@ -79,10 +79,11 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   xhat_.psi = xhat_.psi;
 
   xhat_.p = msg->twist.twist.angular.x;
-  xhat_.q = msg->twist.twist.angular.y;
-  xhat_.r = msg->twist.twist.angular.z;
+  xhat_.q = -msg->twist.twist.angular.y;
+  xhat_.r = -msg->twist.twist.angular.z;
 
-  if(is_flying_ && armed_)
+  //if(is_flying_ && armed_)
+  if(armed_)
   {
     ROS_WARN_ONCE("CONTROLLER ACTIVE");
     computeControl(dt);
@@ -253,8 +254,10 @@ void Controller::computeControl(double dt)
     xc_.ay = PID_y_dot_.computePID(xc_.y_dot, pydot, dt);
 
     // Nested Loop for Altitude
+    ROS_INFO("xc_pd: %f, xhat_pd: %f, pddot: %f", xc_.pd, xhat_.pd, pddot);
     double pddot_c = PID_d_.computePID(xc_.pd, xhat_.pd, dt, pddot);
     xc_.az = PID_z_dot_.computePID(pddot_c, pddot, dt);
+    ROS_INFO("pddot_c: %f, pddot: %f, xc_az: %f", pddot_c, pddot, xc_.az);
     mode_flag = rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_AZ;
   }
 
@@ -286,6 +289,7 @@ void Controller::computeControl(double dt)
   {
     // Pack up and send the command
     command_.mode = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
+    command_.ignore = 7;
     command_.F = saturate(xc_.throttle, max_.throttle, 0.0);
     command_.x = saturate(xc_.phi, max_.roll, -max_.roll);
     command_.y = saturate(xc_.theta, max_.pitch, -max_.pitch);
