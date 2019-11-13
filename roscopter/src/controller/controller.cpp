@@ -75,8 +75,8 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   tf::Quaternion tf_quat;
   tf::quaternionMsgToTF(msg->pose.pose.orientation, tf_quat);
   tf::Matrix3x3(tf_quat).getRPY(xhat_.phi, xhat_.theta, xhat_.psi);
-  xhat_.theta = xhat_.theta;
-  xhat_.psi = xhat_.psi;
+  xhat_.theta = -xhat_.theta;
+  xhat_.psi = -xhat_.psi;
 
   xhat_.p = msg->twist.twist.angular.x;
   xhat_.q = -msg->twist.twist.angular.y;
@@ -282,6 +282,8 @@ void Controller::computeControl(double dt)
     double cost = cos(xhat_.theta);
     xc_.throttle = (1.0 - xc_.az) * throttle_eq_ / cosp / cost;
 
+    ROS_INFO("xc_.throttle: %f, throttle_eq_: %f, cosp: %f, cost: %f", xc_.throttle, throttle_eq_, cosp, cost);
+
     mode_flag = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
   }
 
@@ -289,7 +291,8 @@ void Controller::computeControl(double dt)
   {
     // Pack up and send the command
     command_.mode = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
-    command_.ignore = 7;
+    //command_.ignore = 7;
+    command_.ignore = 12;
     command_.F = saturate(xc_.throttle, max_.throttle, 0.0);
     command_.x = saturate(xc_.phi, max_.roll, -max_.roll);
     command_.y = saturate(xc_.theta, max_.pitch, -max_.pitch);

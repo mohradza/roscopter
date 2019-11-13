@@ -33,7 +33,7 @@ class hl_cmd_handler(object):
         #uint8 IGNORE_F = 8
 
         self.hl_cmd = Command()
-        self.hl_cmd.ignore = 7
+        self.hl_cmd.ignore = 4
         self.hl_cmd.mode = 4
         self.hl_cmd.x = 0.0
         self.hl_cmd.y = 0.0
