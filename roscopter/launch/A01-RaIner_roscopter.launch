@@ -8,10 +8,10 @@
   <!-- PID Position Controller -->
   <node name="controller" pkg="roscopter" type="controller" output="screen">
 	  <!-- <remap from="estimate" to="/vrpn/odom"/> -->
-	  <remap from="estimate" to="/odometry/filtered"/>
+	  <remap from="estimate" to="/z_state_estimator/odom"/>
   </node>
 
-  <rosparam command="load" file="$(find roscopter)/params/F450.yaml"/>
+  <rosparam command="load" file="$(find roscopter)/params/gene_F450.yaml"/>
 
 
   <!-- Waypoint Manager -->

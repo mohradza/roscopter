@@ -64,7 +64,9 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
 
   // This should already be coming in NED
   xhat_.pn = msg->pose.pose.position.x;
-  xhat_.pe = -msg->pose.pose.position.y;
+  // GENE INVERTED ROLL (NOW STABLE)
+  //xhat_.pe = -msg->pose.pose.position.y;
+  xhat_.pe = msg->pose.pose.position.y;
   xhat_.pd = -msg->pose.pose.position.z;
 
   xhat_.u = msg->twist.twist.linear.x;
@@ -79,6 +81,7 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   xhat_.psi = -xhat_.psi;
 
   xhat_.p = msg->twist.twist.angular.x;
+  xhat_.q = -msg->twist.twist.angular.y;
   xhat_.q = -msg->twist.twist.angular.y;
   xhat_.r = -msg->twist.twist.angular.z;
 
@@ -218,6 +221,8 @@ void Controller::computeControl(double dt)
     double pndot_c = PID_n_.computePID(xc_.pn, xhat_.pn, dt);
     double pedot_c = PID_e_.computePID(xc_.pe, xhat_.pe, dt);
 
+    ROS_INFO("xc_.pn: %f, xhat_.pn: %f, pndot_c: %f", xc_.pn, xhat_.pn, pndot_c);
+
     // Calculate desired yaw rate
     // First, determine the shortest direction to the commanded psi
     if(fabs(xc_.psi + 2*M_PI - xhat_.psi) < fabs(xc_.psi - xhat_.psi))
@@ -253,6 +258,9 @@ void Controller::computeControl(double dt)
     xc_.ax = PID_x_dot_.computePID(xc_.x_dot, pxdot, dt);
     xc_.ay = PID_y_dot_.computePID(xc_.y_dot, pydot, dt);
 
+    ROS_INFO("xc_.x_dot: %f, pxdot: %f, xc_.ax: %f", xc_.x_dot, pxdot, xc_.ax);
+
+
     // Nested Loop for Altitude
     ROS_INFO("xc_pd: %f, xhat_pd: %f, pddot: %f", xc_.pd, xhat_.pd, pddot);
     double pddot_c = PID_d_.computePID(xc_.pd, xhat_.pd, dt, pddot);
@@ -269,6 +277,8 @@ void Controller::computeControl(double dt)
     if (total_acc_c > 0.001)
     {
       xc_.phi = asin(xc_.ay / total_acc_c);
+      // GENE REMOVED THE -1 (NOT SURE WHY IT IS THERE, BUT WAS CAUSING VEHICLE TO PITCH THE WRONG WAY --> UNSTABLE
+      //xc_.theta = -1.0*asin(xc_.ax / total_acc_c);
       xc_.theta = -1.0*asin(xc_.ax / total_acc_c);
     }
     else
@@ -291,8 +301,10 @@ void Controller::computeControl(double dt)
   {
     // Pack up and send the command
     command_.mode = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
-    //command_.ignore = 7;
-    command_.ignore = 12;
+    command_.ignore = 7; // ALTITUDE HOLD (ignore roll, pitch, yawrate)
+    //command_.ignore = 12; // ATTITUDE HOLD (ignore throttle and yawrate)
+    //command_.ignore = 4; // (ALTITUDE + ATTITUDE HOLD) ignore yawrate
+    //command_.ignore = 0; // (ALTITUDE + ATTITUDE HOLD)
     command_.F = saturate(xc_.throttle, max_.throttle, 0.0);
     command_.x = saturate(xc_.phi, max_.roll, -max_.roll);
     command_.y = saturate(xc_.theta, max_.pitch, -max_.pitch);
