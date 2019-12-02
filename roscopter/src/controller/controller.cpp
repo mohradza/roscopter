@@ -300,10 +300,7 @@ void Controller::computeControl(double dt)
   {
     // Pack up and send the command
     command_.mode = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
-    command_.ignore = ignore_; // ALTITUDE HOLD (ignore roll, pitch, yawrate)
-    //command_.ignore = 12; // ATTITUDE HOLD (ignore throttle and yawrate)
-    //command_.ignore = 4; // (ALTITUDE + ATTITUDE HOLD) ignore yawrate
-    //command_.ignore = 0; // (ALTITUDE + ATTITUDE HOLD)
+    command_.ignore = ignore_;
     command_.F = saturate(xc_.throttle, max_.throttle, 0.0);
     command_.x = saturate(xc_.phi, max_.roll, -max_.roll);
     command_.y = saturate(xc_.theta, max_.pitch, -max_.pitch);
