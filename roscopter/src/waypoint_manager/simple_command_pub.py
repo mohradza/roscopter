@@ -38,7 +38,7 @@ class hl_cmd_handler(object):
         self.hl_cmd.x = 0.0
         self.hl_cmd.y = 0.0
         self.hl_cmd.z = 0.0
-        self.hl_cmd.F = -1.0
+        self.hl_cmd.F = -.5
 
     def rc_cb(self, data):
         self.rc_msg = data

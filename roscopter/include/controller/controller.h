@@ -83,6 +83,7 @@ private:
 
   // Publishers and Subscribers
   ros::Subscriber state_sub_;
+  ros::Subscriber zstate_sub_;
   ros::Subscriber is_flying_sub_;
   ros::Subscriber cmd_sub_;
   ros::Subscriber status_sub_;

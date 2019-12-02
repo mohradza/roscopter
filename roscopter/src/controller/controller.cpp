@@ -36,7 +36,7 @@ Controller::Controller() :
 
   // Set up Publishers and Subscriber
   state_sub_ = nh_.subscribe("estimate", 1, &Controller::stateCallback, this);
-  zstate_sub_ = nh_.subscribe("z_estimate", 1, &Controller:zStateCallback, this);
+  zstate_sub_ = nh_.subscribe("z_estimate", 1, &Controller::zStateCallback, this);
   is_flying_sub_ =
       nh_.subscribe("is_flying", 1, &Controller::isFlyingCallback, this);
   cmd_sub_ =
@@ -84,8 +84,13 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   tf::Quaternion tf_quat;
   tf::quaternionMsgToTF(msg->pose.pose.orientation, tf_quat);
   tf::Matrix3x3(tf_quat).getRPY(xhat_.phi, xhat_.theta, xhat_.psi);
-  xhat_.theta = -xhat_.theta;
+  float roll = xhat_.phi;
+  float pitch = xhat_.theta;
+  // Flip roll / pitch and negate yaw to convert ENU -> NED
+  xhat_.phi = pitch;
+  xhat_.theta = roll;
   xhat_.psi = -xhat_.psi;
+  //ROS_INFO("Roll: %f, Pitch: %f, Yaw: %f", xhat_.phi, xhat_.theta, xhat_.psi);
 
   xhat_.p = msg->twist.twist.angular.x;
   xhat_.q = -msg->twist.twist.angular.y;
@@ -230,7 +235,7 @@ void Controller::computeControl(double dt)
     double pndot_c = PID_n_.computePID(xc_.pn, xhat_.pn, dt);
     double pedot_c = PID_e_.computePID(xc_.pe, xhat_.pe, dt);
 
-    ROS_INFO("xc_.pn: %f, xhat_.pn: %f, pndot_c: %f", xc_.pn, xhat_.pn, pndot_c);
+    //ROS_INFO("xc_.pn: %f, xhat_.pn: %f, pndot_c: %f", xc_.pn, xhat_.pn, pndot_c);
 
     // Calculate desired yaw rate
     // First, determine the shortest direction to the commanded psi
@@ -267,7 +272,7 @@ void Controller::computeControl(double dt)
     xc_.ax = PID_x_dot_.computePID(xc_.x_dot, pxdot, dt);
     xc_.ay = PID_y_dot_.computePID(xc_.y_dot, pydot, dt);
 
-    ROS_INFO("xc_.x_dot: %f, pxdot: %f, xc_.ax: %f", xc_.x_dot, pxdot, xc_.ax);
+    //ROS_INFO("xc_.x_dot: %f, pxdot: %f, xc_.ax: %f", xc_.x_dot, pxdot, xc_.ax);
 
     // Nested Loop for Altitude
     ROS_INFO("xc_pd: %f, xhat_pd: %f, pddot: %f", xc_.pd, xhat_.pd, pddot);
