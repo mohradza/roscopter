@@ -98,6 +98,7 @@ private:
   double drag_constant_;
   bool is_flying_;
   bool armed_;
+  bool have_z_state_;
 
   // PID Controllers
   controller::SimplePID PID_x_dot_;
@@ -125,6 +126,7 @@ private:
 
   // Functions
   void stateCallback(const nav_msgs::OdometryConstPtr &msg);
+  void zStateCallback(const nav_msgs::OdometryConstPtr &msg);
   void isFlyingCallback(const std_msgs::BoolConstPtr &msg);
   void cmdCallback(const rosflight_msgs::CommandConstPtr &msg);
   void statusCallback(const rosflight_msgs::StatusConstPtr &msg);

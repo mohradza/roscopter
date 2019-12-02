@@ -21,6 +21,7 @@ Controller::Controller() :
   max_accel_xy_ = sin(acos(throttle_eq_)) / throttle_eq_ / sqrt(2.);
 
   is_flying_ = false;
+  have_z_state_ = false;
 
   nh_private_.getParam("max_roll", max_.roll);
   nh_private_.getParam("max_pitch", max_.pitch);
@@ -35,6 +36,7 @@ Controller::Controller() :
 
   // Set up Publishers and Subscriber
   state_sub_ = nh_.subscribe("estimate", 1, &Controller::stateCallback, this);
+  zstate_sub_ = nh_.subscribe("z_estimate", 1, &Controller:zStateCallback, this);
   is_flying_sub_ =
       nh_.subscribe("is_flying", 1, &Controller::isFlyingCallback, this);
   cmd_sub_ =
@@ -44,6 +46,13 @@ Controller::Controller() :
   command_pub_ = nh_.advertise<rosflight_msgs::Command>("command", 1);
 }
 
+void Controller::zStateCallback(const nav_msgs::OdometryConstPtr &msg){
+    xhat_.pd = -msg->pose.pose.position.z;
+    xhat_.w = -msg->twist.twist.linear.z;
+    if(!have_z_state_){
+      have_z_state_ = true;
+    }
+}
 
 void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
 {
@@ -65,11 +74,11 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   // This should already be coming in NED
   xhat_.pn = msg->pose.pose.position.x;
   xhat_.pe = -msg->pose.pose.position.y;
-  xhat_.pd = -msg->pose.pose.position.z;
+  //xhat_.pd = -msg->pose.pose.position.z;
 
   xhat_.u = msg->twist.twist.linear.x;
   xhat_.v = -msg->twist.twist.linear.y;
-  xhat_.w = -msg->twist.twist.linear.z;
+  //xhat_.w = -msg->twist.twist.linear.z;
 
   // Convert Quaternion to RPY
   tf::Quaternion tf_quat;
@@ -83,7 +92,7 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   xhat_.r = -msg->twist.twist.angular.z;
 
   //if(is_flying_ && armed_)
-  if(armed_)
+  if(armed_ && have_z_state_)
   {
     ROS_WARN_ONCE("CONTROLLER ACTIVE");
     computeControl(dt);
