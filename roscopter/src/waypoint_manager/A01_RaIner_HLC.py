@@ -27,7 +27,7 @@ class hl_cmd_handler(object):
 
         self.nearness_height_agl = -1.0
         self.nearness_xvel = 1.0
-
+        self.use_nearness_fwdspd = False
         # This should be in vehicle NED frame
         #uint8 MODE_PASS_THROUGH = 0
         #uint8 MODE_ROLLRATE_PITCHRATE_YAWRATE_THROTTLE = 1
@@ -95,6 +95,8 @@ class hl_cmd_handler(object):
     def nearness_ctrl_cb(self, data):
         # Import nearness controller commands
         self.nearness_yvel = data.twist.linear.y
+        if(self.use_nearness_fwdspd):
+            self.nearness_xvel = data.twist.linear.x
         self.nearness_yawrate = data.twist.angular.z
 
     def zstate_cb(self, data):
@@ -147,7 +149,7 @@ class hl_cmd_handler(object):
                         self.pos_hold_cmd.x = self.pos_x
                         self.pos_hold_cmd.y = self.pos_y
                         self.pos_hold_cmd.z = self.yaw
-                        self.pos_hold_cmd.F = self.pos_z
+                        self.pos_hold_cmd.F = self.nearness_height_agl
                         self.pos_hold_initialized = True
                     self.hl_cmd.ignore = self.pos_hold_cmd.ignore
                     self.hl_cmd.mode = self.pos_hold_cmd.mode
@@ -162,9 +164,11 @@ class hl_cmd_handler(object):
                     self.hl_cmd.ignore = 0
                     self.hl_cmd.mode = 5
                     self.hl_cmd.x = self.nearness_xvel
-                    self.hl_cmd.y = self.invert_xvel_cmd*self.nearness_yvel
-                    self.hl_cmd.z = self.nearness_yawrate
-                    self.hl_cmd.f = self.nearness_height_agl
+                    #self.hl_cmd.y = self.invert_xvel_cmd*self.nearness_yvel
+                    self.hl_cmd.y = 0.0
+                    self.hl_cmd.z = 0.0
+                    #self.hl_cmd.z = self.nearness_yawrate
+                    self.hl_cmd.F = self.nearness_height_agl
 
                 if(self.state == 'landing'):
                     self.hl_cmd.ignore = 0
