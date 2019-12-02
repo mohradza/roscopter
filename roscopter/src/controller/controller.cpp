@@ -64,9 +64,7 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
 
   // This should already be coming in NED
   xhat_.pn = msg->pose.pose.position.x;
-  // GENE INVERTED ROLL (NOW STABLE)
-  //xhat_.pe = -msg->pose.pose.position.y;
-  xhat_.pe = msg->pose.pose.position.y;
+  xhat_.pe = -msg->pose.pose.position.y;
   xhat_.pd = -msg->pose.pose.position.z;
 
   xhat_.u = msg->twist.twist.linear.x;
@@ -81,7 +79,6 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   xhat_.psi = -xhat_.psi;
 
   xhat_.p = msg->twist.twist.angular.x;
-  xhat_.q = -msg->twist.twist.angular.y;
   xhat_.q = -msg->twist.twist.angular.y;
   xhat_.r = -msg->twist.twist.angular.z;
 
@@ -121,6 +118,7 @@ void Controller::cmdCallback(const rosflight_msgs::CommandConstPtr &msg)
       xc_.pd = msg->F;
       xc_.psi = msg->z;
       control_mode_ = msg->mode;
+      ignore_ = msg->ignore;
       break;
     case rosflight_msgs::Command::MODE_XVEL_YVEL_YAWRATE_ALTITUDE:
       xc_.x_dot = msg->x;
@@ -128,6 +126,7 @@ void Controller::cmdCallback(const rosflight_msgs::CommandConstPtr &msg)
       xc_.pd = msg->F;
       xc_.r = msg->z;
       control_mode_ = msg->mode;
+      ignore_ = msg->ignore;
       break;
     case rosflight_msgs::Command::MODE_XACC_YACC_YAWRATE_AZ:
       xc_.ax = msg->x;
@@ -135,6 +134,7 @@ void Controller::cmdCallback(const rosflight_msgs::CommandConstPtr &msg)
       xc_.az = msg->F;
       xc_.r = msg->z;
       control_mode_ = msg->mode;
+      ignore_ = msg->ignore;
       break;
     default:
       ROS_ERROR("roscopter/controller: Unhandled command message of type %d",
@@ -260,7 +260,6 @@ void Controller::computeControl(double dt)
 
     ROS_INFO("xc_.x_dot: %f, pxdot: %f, xc_.ax: %f", xc_.x_dot, pxdot, xc_.ax);
 
-
     // Nested Loop for Altitude
     ROS_INFO("xc_pd: %f, xhat_pd: %f, pddot: %f", xc_.pd, xhat_.pd, pddot);
     double pddot_c = PID_d_.computePID(xc_.pd, xhat_.pd, dt, pddot);
@@ -301,7 +300,7 @@ void Controller::computeControl(double dt)
   {
     // Pack up and send the command
     command_.mode = rosflight_msgs::Command::MODE_ROLL_PITCH_YAWRATE_THROTTLE;
-    command_.ignore = 7; // ALTITUDE HOLD (ignore roll, pitch, yawrate)
+    command_.ignore = ignore_; // ALTITUDE HOLD (ignore roll, pitch, yawrate)
     //command_.ignore = 12; // ATTITUDE HOLD (ignore throttle and yawrate)
     //command_.ignore = 4; // (ALTITUDE + ATTITUDE HOLD) ignore yawrate
     //command_.ignore = 0; // (ALTITUDE + ATTITUDE HOLD)
