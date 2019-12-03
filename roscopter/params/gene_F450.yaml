@@ -40,7 +40,7 @@ y_dot_D: 0.0,
 #z_dot_I: 0.0,
 #z_dot_D: 0.1,
 
-z_dot_P: 0.1,
+z_dot_P: 0.5,
 z_dot_I: 0.0,
 z_dot_D: 0.0,
 
@@ -83,6 +83,6 @@ max_yaw_rate: 0.785,
 max_throttle: 0.85,
 max_n_dot: 1.0,
 max_e_dot: 1.0,
-max_d_dot: 0.5
+max_d_dot: 2.0
 
 }

@@ -15,7 +15,7 @@ class hl_cmd_handler(object):
         rospy.Subscriber('rc_raw', RCRaw, self.rc_cb)
 
         self.offb_switch = False
- 
+
 
         # This should be in vehicle NED frame
         #uint8 MODE_PASS_THROUGH = 0
@@ -34,7 +34,7 @@ class hl_cmd_handler(object):
 
         self.hl_cmd = Command()
         self.hl_cmd.ignore = 7
-        self.hl_cmd.mode = 4 
+        self.hl_cmd.mode = 4
         self.hl_cmd.x = 0.0
         self.hl_cmd.y = 0.0
         self.hl_cmd.z = 0.0
@@ -43,7 +43,7 @@ class hl_cmd_handler(object):
     def rc_cb(self, data):
         self.rc_msg = data
         if(self.rc_msg.values[5] > 1500):
-            rospy.loginfo('switch')
+            #rospy.loginfo('switch')
             self.offb_switch = True
         else:
             self.offb_switch = False

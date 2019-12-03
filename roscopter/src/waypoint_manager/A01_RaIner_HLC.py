@@ -152,8 +152,8 @@ class hl_cmd_handler(object):
                     self.hl_cmd.mode = 4
                     self.hl_cmd.x = 0.0
                     self.hl_cmd.y = 0.0
-                    self.hl_cmd.z = 0.0
-                    self.hl_cmd.F = .5
+                    self.hl_cmd.z = self.initial_yaw
+                    self.hl_cmd.F = 1.0
 
                 if(self.state == 'takeoff'):
                     rospy.loginfo_once("Control Mode: Takeoff")
@@ -163,7 +163,8 @@ class hl_cmd_handler(object):
                     self.hl_cmd.y = self.initial_odom_state.pose.pose.position.y
                     self.hl_cmd.z = self.initial_yaw
                     takeoff_time_s = (rospy.Time.now() - self.takeoff_start_time).to_sec()
-                    self.hl_cmd.F = np.clip((takeoff_time_s/self.takeoff_ramp_time_s)*self.takeoff_height_agl, 0, self.takeoff_height_agl)
+                    #ramp = (takeoff_time_s/self.takeoff_ramp_time_s)*self.takeoff_height_agl
+                    self.hl_cmd.F = np.clip((takeoff_time_s/self.takeoff_ramp_time_s)*self.takeoff_height_agl, self.takeoff_height_agl, 0.0)
                     #rospy.loginfo("Height error: %f", abs(self.pos_z - self.takeoff_height_agl))
                     if(abs(self.pos_z - self.takeoff_height_agl) < self.takeoff_thresh):
                         self.state = 'pos_hold'

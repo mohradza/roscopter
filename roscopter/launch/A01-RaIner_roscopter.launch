@@ -7,7 +7,7 @@
 -->
   <!-- PID Position Controller -->
   <!--<node name="controller" pkg="roscopter" type="controller" output="screen"> -->
-  <node name="controller" pkg="roscopter" type="controller" output="screen">
+	  <node name="controller" pkg="roscopter" type="controller" output="screen">
 	  <!-- <remap from="estimate" to="/vrpn/odom"/> -->
 	  <remap from="estimate" to="/odometry/filtered"/>
 	  <remap from="z_estimate" to="/z_state_estimator/odom"/>
@@ -17,14 +17,14 @@
 
 
   <!-- Waypoint Manager -->
-  <node name="waypoint_manager" pkg="roscopter" type="simple_command_pub.py" output="screen">
+  <!--  <node name="waypoint_manager" pkg="roscopter" type="simple_command_pub.py" output="screen">
 	   <remap from="waypoint" to="high_level_command"/>
   </node>
-
+-->
   <!-- Waypoint Manager -->
-  <!--  <node name="waypoint_manager" pkg="roscopter" type="A01_RaIner_HLC.py" output="screen">
+  <node name="waypoint_manager" pkg="roscopter" type="A01_RaIner_HLC.py" output="screen">
     <remap from="odom" to="odometry/filtered"/>
     <remap from="z_odom" to="z_state_estimator/odom"/>
   </node>
--->
+
 </launch>

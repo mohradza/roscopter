@@ -97,7 +97,7 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   xhat_.r = -msg->twist.twist.angular.z;
 
   //if(is_flying_ && armed_)
-  if(armed_ && have_z_state_)
+  if((armed_ && have_z_state_))
   {
     ROS_WARN_ONCE("CONTROLLER ACTIVE");
     computeControl(dt);
