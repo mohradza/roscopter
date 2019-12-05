@@ -40,7 +40,7 @@ y_dot_D: 0.0,
 #z_dot_I: 0.0,
 #z_dot_D: 0.1,
 
-z_dot_P: 0.5,
+z_dot_P: 0.1,
 z_dot_I: 0.0,
 z_dot_D: 0.0,
 
@@ -48,17 +48,17 @@ z_dot_D: 0.0,
 #north_I: 0.1,
 #north_D: 0.35,
 
-north_P: 2.0,
+north_P: 1.0,
 north_I: 0.0,
-north_D: 2.0,
+north_D: .5,
 
 #east_P: 1.0,
 #east_I: 0.1,
 #east_D: 0.2,
 
-east_P: 2.0,
+east_P: 1.0,
 east_I: 0.0,
-east_D: 2.0,
+east_D: .5,
 
 #down_P: .4,
 #down_I: 0.0,

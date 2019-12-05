@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import rospy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped
 from rosflight_msgs.msg import Command
 from rosflight_msgs.msg import RCRaw
 from nav_msgs.msg import Path, Odometry
@@ -17,16 +17,18 @@ class hl_cmd_handler(object):
         rospy.Subscriber('rc_raw', RCRaw, self.rc_cb)
         rospy.Subscriber('odom', Odometry, self.odom_cb)
         rospy.Subscriber('z_odom', Odometry, self.z_odom_cb)
+        rospy.Subscriber('/nearness_controller/control_commands', TwistStamped, self.nearness_ctrl_cb)
 
         self.offb_switch = False
-        self.rc_mode_chn = 5
+        self.rc_mode_chn = 7
+        self.offb_mode_chn = 5
         self.invert_yawrate_cmd = 1
         self.invert_yvel_cmd = 1
         self.invert_odom_yaw_angle = -1
 
         self.state = 'init'
 
-        self.nearness_height_agl = -.5
+        self.nearness_height_agl = -.75
         self.nearness_xvel = 1.0
         self.use_nearness_fwdspd = False
         # This should be in vehicle NED frame
@@ -85,7 +87,7 @@ class hl_cmd_handler(object):
 
     def rc_cb(self, data):
         self.rc_msg = data
-        if(self.rc_msg.values[7] > 1500):
+        if(self.rc_msg.values[self.offb_mode_chn] > 1500):
             rospy.loginfo_throttle(5,'Offboard control is enabled.')
             self.offb_switch = True
         else:
@@ -113,11 +115,13 @@ class hl_cmd_handler(object):
 
 
     def nearness_ctrl_cb(self, data):
+        rospy.loginfo_once("Nearness control received")
         # Import nearness controller commands
         self.nearness_yvel = data.twist.linear.y
         if(self.use_nearness_fwdspd):
             self.nearness_xvel = data.twist.linear.x
         self.nearness_yawrate = data.twist.angular.z
+        rospy.loginfo("lin: %f, ang: %f", self.nearness_yvel, self.nearness_yawrate)
 
     def z_odom_cb(self, data):
         rospy.loginfo_once("Z State received.")

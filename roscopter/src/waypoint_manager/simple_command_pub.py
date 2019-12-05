@@ -31,9 +31,21 @@ class hl_cmd_handler(object):
         #uint8 IGNORE_Y = 2
         #uint8 IGNORE_Z = 4
         #uint8 IGNORE_F = 8
+       
+        self.pos_hold = True
+ 
+        self.cmd_out = Command()
+
+        self.twist_cmd = Command()
+        self.twist_cmd.ignore = 4
+        self.twist_cmd.mode = 5
+        self.twist_cmd.x = 0.5
+        self.twist_cmd.y = 0.0
+        self.twist_cmd.z = 0.0
+        self.twist_cmd.F = -.5
 
         self.hl_cmd = Command()
-        self.hl_cmd.ignore = 7
+        self.hl_cmd.ignore = 4
         self.hl_cmd.mode = 4
         self.hl_cmd.x = 0.0
         self.hl_cmd.y = 0.0
@@ -48,10 +60,21 @@ class hl_cmd_handler(object):
         else:
             self.offb_switch = False
 
+        if(self.rc_msg.values[7] > 1500):
+            self.pos_hold = False
+        else:
+            self.pos_hold = True
+
     def start(self):
         while not rospy.is_shutdown():
             if(self.offb_switch):
-                self.cmd_pub.publish(self.hl_cmd);
+                if(self.pos_hold):
+                    rospy.loginfo_throttle(1,'pos_hold')
+                    self.cmd_out = self.hl_cmd
+                else:
+                    rospy.loginfo_throttle(1,'fwd_vel')
+                    self.cmd_out = self.twist_cmd
+                self.cmd_pub.publish(self.cmd_out)
             self.loop_rate.sleep()
 
 if __name__ == '__main__':
