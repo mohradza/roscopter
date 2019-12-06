@@ -50,7 +50,15 @@ class hl_cmd_handler(object):
         self.hl_cmd.x = 0.0
         self.hl_cmd.y = 0.0
         self.hl_cmd.z = 0.0
-        self.hl_cmd.F = -.5
+        self.hl_cmd.F = -.4
+        
+        self.hl_cmd2 = Command()
+        self.hl_cmd2.ignore = 4
+        self.hl_cmd2.mode = 4
+        self.hl_cmd2.x = 1.0
+        self.hl_cmd2.y = 0.0
+        self.hl_cmd2.z = 0.0
+        self.hl_cmd2.F = -.5
 
     def rc_cb(self, data):
         self.rc_msg = data
@@ -73,7 +81,7 @@ class hl_cmd_handler(object):
                     self.cmd_out = self.hl_cmd
                 else:
                     rospy.loginfo_throttle(1,'fwd_vel')
-                    self.cmd_out = self.twist_cmd
+                    self.cmd_out = self.hl_cmd2
                 self.cmd_pub.publish(self.cmd_out)
             self.loop_rate.sleep()
 

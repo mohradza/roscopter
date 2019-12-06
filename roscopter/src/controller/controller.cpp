@@ -71,14 +71,16 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   if(dt <= 0)
     return;
 
-  // This should already be coming in NED
+  // Robot Localization sends position in ENU
+  // Need to convert to NED
   xhat_.pn = msg->pose.pose.position.x;
   xhat_.pe = -msg->pose.pose.position.y;
   //xhat_.pd = -msg->pose.pose.position.z;
-
+  //ROS_INFO("x: %f, y: %f", xhat_.pn, xhat_.pe);
   xhat_.u = msg->twist.twist.linear.x;
   xhat_.v = -msg->twist.twist.linear.y;
   //xhat_.w = -msg->twist.twist.linear.z;
+  //ROS_INFO("u: %f, v: %f", xhat_.u, xhat_.v);
 
   // Convert Quaternion to RPY
   tf::Quaternion tf_quat;
@@ -92,8 +94,8 @@ void Controller::stateCallback(const nav_msgs::OdometryConstPtr &msg)
   xhat_.psi = -xhat_.psi;
   //ROS_INFO("Roll: %f, Pitch: %f, Yaw: %f", xhat_.phi, xhat_.theta, xhat_.psi);
 
-  xhat_.p = msg->twist.twist.angular.x;
-  xhat_.q = -msg->twist.twist.angular.y;
+  xhat_.p = msg->twist.twist.angular.y;
+  xhat_.q = msg->twist.twist.angular.x;
   xhat_.r = -msg->twist.twist.angular.z;
 
   //if(is_flying_ && armed_)
